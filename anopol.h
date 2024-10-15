@@ -13,6 +13,7 @@ static anopol::anopolContext* context;
 
 #include "ll/internal.h"
 #include "core/render/vertex.h"
+#include "core/pipeline/pipeline.h"
 
 namespace anopol {
 
@@ -71,6 +72,8 @@ void initialize() {
     glfwCreateWindowSurface(context->instance, context->window, nullptr, &context->surface);
     
     anopol::ll::initializeVulkanDependenices();
+    
+    anopol::pipeline::Pipeline pipeline = anopol::pipeline::Pipeline::CreatePipeline("/Users/dmitriwamback/Documents/Projects/anopol/anopol/shaders/main");
 }
 }
 
