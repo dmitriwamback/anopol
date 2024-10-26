@@ -17,32 +17,30 @@ public:
     
     void alloc(std::vector<Vertex> vertices) {
         
-        VkBufferCreateInfo vertexBufferCreateInfo{};
-        vertexBufferCreateInfo.sType        = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        vertexBufferCreateInfo.size         = sizeof(vertices[0]) * vertices.size();
-        vertexBufferCreateInfo.usage        = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        vertexBufferCreateInfo.sharingMode  = VK_SHARING_MODE_EXCLUSIVE;
+        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
         
-        if (vkCreateBuffer(context->device, &vertexBufferCreateInfo, nullptr, &vertexBuffer) != VK_SUCCESS) anopol_assert("Failed to create vertex buffer");
+        VkBuffer staging;
+        VkDeviceMemory stagingMemory;
         
-        VkMemoryRequirements mem;
-        VkMemoryAllocateInfo memoryAllocationInfo{};
-        
-        vkGetBufferMemoryRequirements(context->device, vertexBuffer, &mem);
-        
-        memoryAllocationInfo.sType              = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        memoryAllocationInfo.allocationSize     = mem.size;
-        memoryAllocationInfo.memoryTypeIndex    = anopol::ll::findMemoryType(mem.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        
-        if (vkAllocateMemory(context->device, &memoryAllocationInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) anopol_assert("Failed to allocate memory");
-        
-        vkBindBufferMemory(context->device, vertexBuffer, vertexBufferMemory, 0);
+        anopol::ll::createBuffer(bufferSize,
+                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                 staging, stagingMemory);
         
         void* data;
-        vkMapMemory(context->device, vertexBufferMemory, 0, vertexBufferCreateInfo.size, 0, &data);
+        vkMapMemory(context->device, stagingMemory, 0, bufferSize, 0, &data);
+        memcpy(data, vertices.data(), (size_t)bufferSize);
+        vkUnmapMemory(context->device, stagingMemory);
         
-        memcpy(data, vertices.data(), (size_t)vertexBufferCreateInfo.size);
-        vkUnmapMemory(context->device, vertexBufferMemory);
+        anopol::ll::createBuffer(bufferSize, 
+                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                 vertexBuffer,
+                                 vertexBufferMemory);
+        
+        anopol::ll::memCopyBuffer(staging, vertexBuffer, bufferSize);
+        vkDestroyBuffer(context->device, staging, nullptr);
+        vkFreeMemory(context->device, stagingMemory, nullptr);
     }
 };
 

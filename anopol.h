@@ -15,6 +15,7 @@ static anopol::anopolContext* context;
 #include "ll/internal.h"
 
 #include "core/render/vertex.h"
+#include "core/render/uniform_buffer.h"
 #include "core/render/vertex_buffer.h"
 #include "core/render/renderable.h"
 
@@ -56,7 +57,6 @@ void initialize() {
     requiredExtensions.emplace_back("VK_KHR_get_physical_device_properties2");
 #endif
     
-    
     VkInstanceCreateInfo instanceInfo{};
     instanceInfo.sType                      = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceInfo.pApplicationInfo           = &app;
@@ -82,6 +82,7 @@ void initialize() {
         pipeline.currentFrame = (pipeline.currentFrame + 1) % anopol_max_frames;
         
         glfwPollEvents();
+        pipeline.Bind("test");
     }
 }
 }

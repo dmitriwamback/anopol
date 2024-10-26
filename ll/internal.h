@@ -13,10 +13,68 @@ namespace anopol::ll {
 std::vector<VkImage> swapchainImages;
 std::vector<VkImageView> swapchainImageViews;
 
-std::vector<VkFramebuffer> framebuffers = std::vector<VkFramebuffer>();
 std::vector<VkCommandBuffer> commandbuffers = std::vector<VkCommandBuffer>();
 VkRenderPass renderpass;
 
+VkCommandPool commandPool;
+
+//------------------------------------------------------------------------------------------//
+// Buffers
+//------------------------------------------------------------------------------------------//
+
+void createBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType        = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size         = size;
+    bufferInfo.usage        = usageFlags;
+    bufferInfo.sharingMode  = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(context->device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) anopol_assert("Failed to create buffer");
+
+    VkMemoryRequirements mem;
+    vkGetBufferMemoryRequirements(context->device, buffer, &mem);
+
+    VkMemoryAllocateInfo allocationInfo{};
+    allocationInfo.sType            = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocationInfo.allocationSize   = mem.size;
+    allocationInfo.memoryTypeIndex  = findMemoryType(mem.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(context->device, &allocationInfo, nullptr, &bufferMemory) != VK_SUCCESS) anopol_assert("Failed to allocate memory");
+    vkBindBufferMemory(context->device, buffer, bufferMemory, 0);
+}
+
+void memCopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
+    
+    VkCommandBufferAllocateInfo allocationInfo{};
+    allocationInfo.sType                = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocationInfo.level                = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocationInfo.commandPool          = commandPool;
+    allocationInfo.commandBufferCount   = 1;
+    
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(context->device, &allocationInfo, &commandBuffer);
+    
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    
+    vkBeginCommandBuffer(commandBuffer, &begin);
+    
+    VkBufferCopy copy{};
+    copy.size = size;
+    vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copy);
+    vkEndCommandBuffer(commandBuffer);
+    
+    VkSubmitInfo submit{};
+    submit.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount   = 1;
+    submit.pCommandBuffers      = &commandBuffer;
+    
+    vkQueueSubmit(context->graphicsQueue, 1, &submit, VK_NULL_HANDLE);
+    vkQueueWaitIdle(context->graphicsQueue);
+    
+    vkFreeCommandBuffers(context->device, commandPool, 1, &commandBuffer);
+}
 
 //------------------------------------------------------------------------------------------//
 // QueueFamily
@@ -232,7 +290,6 @@ void createSwapchain() {
     
     swapchainImages.resize(swapchainImageCount);
     swapchainImageViews.resize(swapchainImages.size());
-    framebuffers.resize(swapchainImages.size());
     
     vkGetSwapchainImagesKHR(context->device, context->swapchain, &swapchainImageCount, swapchainImages.data());
     
@@ -278,6 +335,16 @@ void initializeVulkanDependenices() {
     context->physicalDevice = findPhysicalDevice(physicalDevices);
     createDevice();
     createSwapchain();
+    
+    queueFamily family = anopol::ll::findQueueFamily(context->physicalDevice);
+    VkCommandPoolCreateInfo poolCreateInfo{};
+    poolCreateInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolCreateInfo.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolCreateInfo.queueFamilyIndex = family.graphicsFamily.value();
+
+    if (vkCreateCommandPool(context->device,
+                            &poolCreateInfo, nullptr,
+                            &commandPool) != VK_SUCCESS) throw std::runtime_error("CommandPool");
 }
 }
 

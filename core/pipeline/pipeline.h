@@ -46,8 +46,6 @@ public:
                                  renderSemaphores   = std::vector<VkSemaphore>();
     
     std::vector<VkFence> inFlightFences             = std::vector<VkFence>();
-
-    VkCommandPool commandPool;
     
     layout* pipelineLayout;
     pipeline* p_pipeline;
@@ -55,7 +53,7 @@ public:
     std::map<std::string, Scene*> scenes;
     std::map<std::string, VkPipelineShaderStageCreateInfo> shaderModules;
     
-    anopol::render::Renderable debugRenderable;
+    std::vector<anopol::render::Renderable> debugRenderables = std::vector<anopol::render::Renderable>();
         
     static Pipeline CreatePipeline(std::string shaderFolder);
     
@@ -118,10 +116,12 @@ std::vector<char> Pipeline::LoadShaderContent(std::string path) {
     size_t fileSize = (size_t)file.tellg();
     std::vector<char> buffer(fileSize);
     
+    std::cout << fileSize << '\n';
+    
     file.seekg(0);
     file.read(buffer.data(), fileSize);
     file.close();
-    
+        
     return buffer;
 }
 VkShaderModule Pipeline::CreateShaderModule(std::vector<char> shaderSource) {
@@ -156,7 +156,16 @@ void Pipeline::InitializePipeline() {
     pipelineLayout->scissor.offset = {0, 0};
     pipelineLayout->scissor.extent = context->extent;
     
-    debugRenderable = anopol::render::Renderable::Create();
+    
+    
+    
+    
+    debugRenderables.push_back(anopol::render::Renderable::Create(true));
+    debugRenderables.push_back(anopol::render::Renderable::Create());
+    
+    
+    
+    
     
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -294,26 +303,16 @@ void Pipeline::InitializePipeline() {
 }
 
 void Pipeline::CreateCommandBuffers() {
-    
-    queueFamily family = anopol::ll::findQueueFamily(context->physicalDevice);
-    VkCommandPoolCreateInfo poolCreateInfo{};
-    poolCreateInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolCreateInfo.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolCreateInfo.queueFamilyIndex = family.graphicsFamily.value();
-
-    if (vkCreateCommandPool(context->device,
-                            &poolCreateInfo, nullptr,
-                            &commandPool) != VK_SUCCESS) throw std::runtime_error("CommandPool");
 
     VkCommandBufferAllocateInfo commandBufferAllocationInfo{};
     commandBufferAllocationInfo.sType               = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     commandBufferAllocationInfo.commandBufferCount  = anopol_max_frames;
     commandBufferAllocationInfo.level               = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferAllocationInfo.commandPool         = commandPool;
+    commandBufferAllocationInfo.commandPool         = ll::commandPool;
 
     if (vkAllocateCommandBuffers(context->device,
                                 &commandBufferAllocationInfo,
-                                commandBuffers.data()) != VK_SUCCESS) throw std::runtime_error("CommandBuffer");
+                                commandBuffers.data()) != VK_SUCCESS) anopol_assert("Couldn't create command buffer");
 
     VkSemaphoreCreateInfo semaphoreCreateInfo{};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -327,7 +326,7 @@ void Pipeline::CreateCommandBuffers() {
             vkCreateSemaphore(context->device, &semaphoreCreateInfo, nullptr, &renderSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(context->device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
         {
-            throw std::runtime_error("Couldn't create semaphores!");
+            anopol_assert("Couldn't create semaphores");
         }
     }
 }
@@ -344,7 +343,7 @@ void Pipeline::Bind(std::string name) {
     vkResetFences(context->device, 1, &inFlightFences[currentFrame]);
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
-    if (vkBeginCommandBuffer(commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS) throw std::runtime_error("Begin Info");
+    if (vkBeginCommandBuffer(commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS) anopol_assert("Couldn't begin command buffer");
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType               = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass          = defaultRenderpass;
@@ -352,26 +351,26 @@ void Pipeline::Bind(std::string name) {
     renderPassBeginInfo.renderArea.offset   = {0, 0};
     renderPassBeginInfo.renderArea.extent   = context->extent;
 
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkClearValue clearColor = {{{0.0f, 0.0f, 0.5f, 1.0f}}};
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->pipeline);
-
+    
     pipelineLayout->viewport.width = static_cast<uint32_t>(context->extent.width);
     pipelineLayout->viewport.height = static_cast<uint32_t>(context->extent.height);
 
+    vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->pipeline);
     vkCmdSetViewport(commandBuffers[currentFrame], 0, 1, &pipelineLayout->viewport);
     vkCmdSetScissor(commandBuffers[currentFrame], 0, 1, &pipelineLayout->scissor);
-
-    VkBuffer buffer[] = {debugRenderable.vertexBuffer.vertexBuffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, buffer, offsets);
-    vkCmdDraw(commandBuffers[currentFrame], 3, 1, 0, 0);
+    
+    for (anopol::render::Renderable r : debugRenderables) {
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r.vertexBuffer.vertexBuffer, offsets);
+        vkCmdDraw(commandBuffers[currentFrame], 3, 1, 0, 0);
+    }
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
-    if (vkEndCommandBuffer(commandBuffers[currentFrame]) != VK_SUCCESS) throw std::runtime_error("Failed to record command buffer!");
+    if (vkEndCommandBuffer(commandBuffers[currentFrame]) != VK_SUCCESS) anopol_assert("Failed to record command buffer");
 
     VkSemaphore waitSemaphores[] = {imageSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -389,7 +388,7 @@ void Pipeline::Bind(std::string name) {
     submitInfo.pSignalSemaphores = signal;
         
     if (vkQueueSubmit(context->presentQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to submit draw command!");
+        anopol_assert("Failed to submit the draw command");
     }
 
     VkPresentInfoKHR presentInfo{};

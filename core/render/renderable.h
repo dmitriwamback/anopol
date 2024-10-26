@@ -15,18 +15,27 @@ public:
     std::vector<Vertex> vertices;
     VertexBuffer vertexBuffer;
     
-    static Renderable Create();
+    static Renderable Create(bool debug);
 };
 
-Renderable Renderable::Create() {
+Renderable Renderable::Create(bool debug = false) {
     
     Renderable renderable = Renderable();
     
-    renderable.vertices = {
-        {{ 0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-        {{ 0.5f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{-0.2f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}
-    };
+    if (!debug) {
+        renderable.vertices = {
+            {{ 0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{ 0.5f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}
+        };
+    }
+    else {
+        renderable.vertices = {
+            {{ 0.0f, -0.5f, 0.0f}, {0.3f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{ 0.5f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-1.0f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}
+        };
+    }
     renderable.vertexBuffer = VertexBuffer();
     renderable.vertexBuffer.alloc(renderable.vertices);
     
