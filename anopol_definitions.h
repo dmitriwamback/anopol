@@ -51,7 +51,7 @@ struct swapchainDetails {
 
 struct queueFamily {
     std::optional<uint32_t> graphicsFamily,
-                            presentFamily;
+                            presentQueue;
 };
 
 const std::vector<const char*> validationLayers = {

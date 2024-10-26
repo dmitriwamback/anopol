@@ -8,6 +8,7 @@
 #ifndef vertex_h
 #define vertex_h
 
+namespace anopol::render {
 struct Vertex {
     
     glm::vec3 vertex;
@@ -46,5 +47,6 @@ struct Vertex {
         return attributes;
     }
 };
+}
 
 #endif /* vertex_h */

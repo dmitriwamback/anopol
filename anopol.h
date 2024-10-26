@@ -11,8 +11,13 @@
 #include "anopol_definitions.h"
 static anopol::anopolContext* context;
 
+#include "ll/mem.h"
 #include "ll/internal.h"
+
 #include "core/render/vertex.h"
+#include "core/render/vertex_buffer.h"
+#include "core/render/renderable.h"
+
 #include "core/pipeline/pipeline.h"
 
 namespace anopol {
@@ -62,10 +67,8 @@ void initialize() {
     instanceInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
     
-    if (validation) {
-        instanceInfo.enabledLayerCount      = static_cast<uint32_t>(validationLayers.size());
-        instanceInfo.ppEnabledLayerNames    = validationLayers.data();
-    }
+    instanceInfo.enabledLayerCount      = static_cast<uint32_t>(validationLayers.size());
+    instanceInfo.ppEnabledLayerNames    = validationLayers.data();
     
     if (vkCreateInstance(&instanceInfo, nullptr, &context->instance) != VK_SUCCESS) anopol_assert("Couldn't create VkInstance");
     
@@ -74,6 +77,12 @@ void initialize() {
     anopol::ll::initializeVulkanDependenices();
     
     anopol::pipeline::Pipeline pipeline = anopol::pipeline::Pipeline::CreatePipeline("/Users/dmitriwamback/Documents/Projects/anopol/anopol/shaders/main");
+    
+    while (!glfwWindowShouldClose(context->window)) {
+        pipeline.currentFrame = (pipeline.currentFrame + 1) % anopol_max_frames;
+        
+        glfwPollEvents();
+    }
 }
 }
 

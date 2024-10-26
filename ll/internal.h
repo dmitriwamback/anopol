@@ -41,10 +41,10 @@ queueFamily findQueueFamily(VkPhysicalDevice device) {
         VkBool32 present;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, context->surface, &present);
         if (present) {
-            family.presentFamily = i;
+            family.presentQueue = i;
         }
         
-        if (family.graphicsFamily.has_value() && family.presentFamily.has_value()) {
+        if (family.graphicsFamily.has_value() && family.presentQueue.has_value()) {
             return family;
         }
         i++;
@@ -91,7 +91,7 @@ bool isPhysicalDeviceSuitable(VkPhysicalDevice device) {
     bool adequate = false;
     adequate = !details.formats.empty() && !details.presentModes.empty();
     queueFamily family = findQueueFamily(device);
-    return family.graphicsFamily.has_value() && family.presentFamily.has_value() && adequate;
+    return family.graphicsFamily.has_value() && family.presentQueue.has_value() && adequate;
 }
 
 VkPhysicalDevice findPhysicalDevice(std::vector<VkPhysicalDevice> devices) {
@@ -114,7 +114,7 @@ void createDevice() {
     std::vector<VkDeviceQueueCreateInfo> queueInfo;
     queueFamily family = findQueueFamily(context->physicalDevice);
     
-    for (uint32_t qFamily : std::set<uint32_t>{family.graphicsFamily.value(), family.presentFamily.value()}) {
+    for (uint32_t qFamily : std::set<uint32_t>{family.graphicsFamily.value(), family.presentQueue.value()}) {
         
         float priority = 1.0f;
         
@@ -142,7 +142,7 @@ void createDevice() {
     }
     
     vkGetDeviceQueue(context->device, family.graphicsFamily.value(), 0, &context->graphicsQueue);
-    vkGetDeviceQueue(context->device, family.presentFamily.value(), 0, &context->presentQueue);
+    vkGetDeviceQueue(context->device, family.presentQueue.value(), 0, &context->presentQueue);
 }
 
 //------------------------------------------------------------------------------------------//
@@ -207,8 +207,8 @@ void createSwapchain() {
     
     queueFamily indices = findQueueFamily(context->physicalDevice);
     
-    if (indices.presentFamily != indices.graphicsFamily) {
-        uint32_t q[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    if (indices.presentQueue != indices.graphicsFamily) {
+        uint32_t q[] = { indices.graphicsFamily.value(), indices.presentQueue.value() };
         swapchainInfo.imageSharingMode          = VK_SHARING_MODE_CONCURRENT;
         swapchainInfo.queueFamilyIndexCount     = 2;
         swapchainInfo.pQueueFamilyIndices       = q;
