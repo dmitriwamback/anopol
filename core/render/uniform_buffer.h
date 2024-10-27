@@ -12,7 +12,9 @@ namespace anopol::render {
 
 struct anopolStandardUniform {
     
-    float t = 0;
+    glm::mat4 projection;
+    glm::mat4 lookAt;
+    float t;
 };
 
 class UniformBuffer {
@@ -49,8 +51,11 @@ UniformBuffer UniformBuffer::Create() {
 void UniformBuffer::Update(int currentFrame) {
     anopolStandardUniform asu{};
     debugTime += 0.1f;
+    
     asu.t = debugTime;
-        
+    asu.projection = anopol::camera::camera.cameraProjection;
+    asu.lookAt = anopol::camera::camera.cameraLookAt;
+            
     memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
 }
 

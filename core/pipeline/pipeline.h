@@ -252,7 +252,7 @@ void Pipeline::InitializePipeline() {
     p_pipeline->rasterizer.rasterizerDiscardEnable          = VK_FALSE;
     p_pipeline->rasterizer.polygonMode                      = VK_POLYGON_MODE_FILL;
     p_pipeline->rasterizer.lineWidth                        = 1;
-    p_pipeline->rasterizer.cullMode                         = VK_CULL_MODE_BACK_BIT;
+    p_pipeline->rasterizer.cullMode                         = VK_CULL_MODE_NONE;
     p_pipeline->rasterizer.frontFace                        = VK_FRONT_FACE_CLOCKWISE;
     p_pipeline->rasterizer.depthBiasEnable                  = VK_FALSE;
     p_pipeline->rasterizer.depthBiasConstantFactor          = 0;
@@ -488,7 +488,7 @@ void Pipeline::Bind(std::string name) {
     for (anopol::render::Renderable r : debugRenderables) {
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r.vertexBuffer.vertexBuffer, offsets);
-        vkCmdDraw(commandBuffers[currentFrame], 3, 1, 0, 0);
+        vkCmdDraw(commandBuffers[currentFrame], r.vertices.size(), 1, 0, 0);
     }
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 

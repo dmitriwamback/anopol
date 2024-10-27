@@ -1,6 +1,8 @@
 #version 440
 
 layout (binding = 0) uniform anopolStandardUniform {
+    mat4 projection;
+    mat4 lookAt;
     float t;
 } ubo;
 
@@ -16,5 +18,5 @@ void main() {
     frag = inNormal;
     time = ubo.t;
     
-    gl_Position = vec4(inVertex.xy, 0, 1.0);
+    gl_Position = ubo.projection * ubo.lookAt * vec4(inVertex, 1.0);
 }

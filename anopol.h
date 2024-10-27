@@ -14,6 +14,9 @@ static anopol::anopolContext* context;
 #include "ll/mem.h"
 #include "ll/internal.h"
 
+#include "core/camera/frustum.h"
+#include "core/camera/camera.h"
+
 #include "core/render/vertex.h"
 #include "core/render/uniform_buffer.h"
 #include "core/render/vertex_buffer.h"
@@ -74,12 +77,24 @@ void initialize() {
     
     glfwCreateWindowSurface(context->instance, context->window, nullptr, &context->surface);
     
+    anopol::camera::Camera::initialize();
+    glfwSetCursorPosCallback(context->window, anopol::camera::cursor_position_callback);
+    
     anopol::ll::initializeVulkanDependenices();
     
     anopol::pipeline::Pipeline pipeline = anopol::pipeline::Pipeline::CreatePipeline("/Users/dmitriwamback/Documents/Projects/anopol/anopol/shaders/main");
     
     while (!glfwWindowShouldClose(context->window)) {
         pipeline.currentFrame = (pipeline.currentFrame + 1) % anopol_max_frames;
+        
+        glm::vec4 movement = glm::vec4(0.0f);
+
+        movement.z = glfwGetKey(context->window, GLFW_KEY_A) == GLFW_PRESS ?  0.05f : 0;
+        movement.w = glfwGetKey(context->window, GLFW_KEY_D) == GLFW_PRESS ? -0.05f : 0;
+        movement.x = glfwGetKey(context->window, GLFW_KEY_W) == GLFW_PRESS ?  0.05f : 0;
+        movement.y = glfwGetKey(context->window, GLFW_KEY_S) == GLFW_PRESS ? -0.05f : 0;
+        
+        anopol::camera::camera.update(movement);
         
         glfwPollEvents();
         pipeline.Bind("test");
