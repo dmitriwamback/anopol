@@ -12,10 +12,13 @@
 
 namespace anopol::pipeline {
 
-#define anopol_max_frames 2
-
 class Pipeline {
 public:
+    
+    //------------------------------------------------------------------------------------------//
+    // Structs
+    //------------------------------------------------------------------------------------------//
+    
     struct layout {
         VkPipelineLayout    pipelineLayout;
         VkRect2D            scissor{};
@@ -23,9 +26,6 @@ public:
         VkRenderPass        renderPass;
         VkPipeline          pipeline;
     };
-    VkRenderPass defaultRenderpass;
-    
-    int currentFrame = 0;
     
     struct pipeline {
         
@@ -39,6 +39,21 @@ public:
         uint32_t imageIndex;
     };
     
+    struct descriptorSets {
+        VkDescriptorPool descriptorPool;
+        std::vector<VkDescriptorSet> descriptorSets;
+    };
+    
+    //------------------------------------------------------------------------------------------//
+    // Variables
+    //------------------------------------------------------------------------------------------//
+    
+    int currentFrame = 0;
+    
+    VkRenderPass defaultRenderpass;
+    
+    anopol::render::UniformBuffer uniformBufferMemory;
+    
     std::vector<VkCommandBuffer> commandBuffers     = std::vector<VkCommandBuffer>();
     
     std::vector<VkFramebuffer>   framebuffers       = std::vector<VkFramebuffer>();
@@ -49,12 +64,17 @@ public:
     
     layout* pipelineLayout;
     pipeline* p_pipeline;
+    descriptorSets* p_descriptorSets;
     
     std::map<std::string, Scene*> scenes;
     std::map<std::string, VkPipelineShaderStageCreateInfo> shaderModules;
     
     std::vector<anopol::render::Renderable> debugRenderables = std::vector<anopol::render::Renderable>();
-        
+    
+    //------------------------------------------------------------------------------------------//
+    // Methods
+    //------------------------------------------------------------------------------------------//
+    
     static Pipeline CreatePipeline(std::string shaderFolder);
     
     static VkShaderModule CreateShaderModule(std::vector<char> shaderSource);
@@ -97,6 +117,7 @@ Pipeline Pipeline::CreatePipeline(std::string shaderFolder) {
 
     pipeline.pipelineLayout = static_cast<Pipeline::layout*>(malloc(1 * sizeof(Pipeline::layout)));
     pipeline.p_pipeline = static_cast<Pipeline::pipeline*>(malloc(1 * sizeof(Pipeline::pipeline)));
+    pipeline.p_descriptorSets = static_cast<Pipeline::descriptorSets*>(malloc(1 * sizeof(Pipeline::descriptorSets)));
     
     pipeline.InitializePipeline();
     pipeline.CreateCommandBuffers();
@@ -139,6 +160,10 @@ VkShaderModule Pipeline::CreateShaderModule(std::vector<char> shaderSource) {
 }
 void Pipeline::InitializePipeline() {
     
+    //------------------------------------------------------------------------------------------//
+    // Preparing
+    //------------------------------------------------------------------------------------------//
+    
     framebuffers.resize(anopol::ll::swapchainImageViews.size());
     
     commandBuffers.resize(anopol_max_frames);
@@ -156,16 +181,34 @@ void Pipeline::InitializePipeline() {
     pipelineLayout->scissor.offset = {0, 0};
     pipelineLayout->scissor.extent = context->extent;
     
-    
-    
-    
+    //------------------------------------------------------------------------------------------//
+    // Debug
+    //------------------------------------------------------------------------------------------//
     
     debugRenderables.push_back(anopol::render::Renderable::Create(true));
     debugRenderables.push_back(anopol::render::Renderable::Create());
     
+    //------------------------------------------------------------------------------------------//
+    // Creating Uniform Buffers
+    //------------------------------------------------------------------------------------------//
     
+    uniformBufferMemory = anopol::render::UniformBuffer::Create();
     
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount        = (uint32_t)anopol_max_frames;
     
+    VkDescriptorPoolCreateInfo poolCreateInfo{};
+    poolCreateInfo.sType            = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolCreateInfo.poolSizeCount    = 1;
+    poolCreateInfo.pPoolSizes       = &poolSize;
+    poolCreateInfo.maxSets          = (uint32_t)anopol_max_frames;
+    
+    if (vkCreateDescriptorPool(context->device, &poolCreateInfo, nullptr, &p_descriptorSets->descriptorPool) != VK_SUCCESS) anopol_assert("Failed to create descriptor pool");
+    
+    //------------------------------------------------------------------------------------------//
+    // Creating Necessary Pipeline Inputs
+    //------------------------------------------------------------------------------------------//
     
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -228,9 +271,63 @@ void Pipeline::InitializePipeline() {
     p_pipeline->colorBlending.pAttachments                  = &color;
     p_pipeline->colorBlending.flags                         = 0;
     p_pipeline->colorBlending.pNext                         = NULL;
+    
+    //------------------------------------------------------------------------------------------//
+    // Uniform Descriptor Sets
+    //------------------------------------------------------------------------------------------//
+    
+    VkDescriptorSetLayoutBinding uniformBufferLayoutBinding{};
+    uniformBufferLayoutBinding.binding          = 0;
+    uniformBufferLayoutBinding.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformBufferLayoutBinding.descriptorCount  = 1;
+    uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT;
+    
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings    = &uniformBufferLayoutBinding;
+    
+    VkDescriptorSetLayout descriptor;
+    
+    if (vkCreateDescriptorSetLayout(context->device, &layoutInfo, nullptr, &descriptor) != VK_SUCCESS) anopol_assert("Failed to create descriptor");
+    
+    std::vector<VkDescriptorSetLayout> descriptorLayouts(anopol_max_frames, descriptor);
+    
+    VkDescriptorSetAllocateInfo descriptorAllocationInfo{};
+    descriptorAllocationInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorAllocationInfo.descriptorPool     = p_descriptorSets->descriptorPool;
+    descriptorAllocationInfo.descriptorSetCount = (uint32_t)anopol_max_frames;
+    descriptorAllocationInfo.pSetLayouts        = descriptorLayouts.data();
+    
+    p_descriptorSets->descriptorSets.resize(anopol_max_frames);
+    if (vkAllocateDescriptorSets(context->device, &descriptorAllocationInfo, p_descriptorSets->descriptorSets.data()) != VK_SUCCESS) anopol_assert("Failed to allocate descriptor sets");
+    
+    for (size_t i = 0; i < anopol_max_frames; i++) {
+        VkDescriptorBufferInfo descriptorBufferInfo{};
+        descriptorBufferInfo.buffer = uniformBufferMemory.uniformBuffer[i];
+        descriptorBufferInfo.offset = 0;
+        descriptorBufferInfo.range  = sizeof(anopol::render::anopolStandardUniform);
+        
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet          = p_descriptorSets->descriptorSets[i];
+        descriptorWrite.dstBinding      = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo     = &descriptorBufferInfo;
+        
+        vkUpdateDescriptorSets(context->device, 1, &descriptorWrite, 0, nullptr);
+    }
+    
+    //------------------------------------------------------------------------------------------//
+    // Creating Graphics Pipeline
+    //------------------------------------------------------------------------------------------//
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.sType            = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount   = 1;
+    pipelineLayoutInfo.pSetLayouts      = &descriptor;
     
     if (vkCreatePipelineLayout(context->device, &pipelineLayoutInfo, nullptr, &pipelineLayout->pipelineLayout) != VK_SUCCESS) anopol_assert("Failed to create pipeline");
     
@@ -303,6 +400,10 @@ void Pipeline::InitializePipeline() {
 }
 
 void Pipeline::CreateCommandBuffers() {
+    
+    //------------------------------------------------------------------------------------------//
+    // Creating Command Buffer
+    //------------------------------------------------------------------------------------------//
 
     VkCommandBufferAllocateInfo commandBufferAllocationInfo{};
     commandBufferAllocationInfo.sType               = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -313,6 +414,10 @@ void Pipeline::CreateCommandBuffers() {
     if (vkAllocateCommandBuffers(context->device,
                                 &commandBufferAllocationInfo,
                                 commandBuffers.data()) != VK_SUCCESS) anopol_assert("Couldn't create command buffer");
+    
+    //------------------------------------------------------------------------------------------//
+    // Creating Semaphores and Fences
+    //------------------------------------------------------------------------------------------//
 
     VkSemaphoreCreateInfo semaphoreCreateInfo{};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -332,6 +437,11 @@ void Pipeline::CreateCommandBuffers() {
 }
 
 void Pipeline::Bind(std::string name) {
+    
+    //------------------------------------------------------------------------------------------//
+    // Binding
+    //------------------------------------------------------------------------------------------//
+    
     vkWaitForFences(context->device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -344,6 +454,11 @@ void Pipeline::Bind(std::string name) {
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
     if (vkBeginCommandBuffer(commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS) anopol_assert("Couldn't begin command buffer");
+    
+    //------------------------------------------------------------------------------------------//
+    // Preparing Render Pass
+    //------------------------------------------------------------------------------------------//
+    
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType               = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass          = defaultRenderpass;
@@ -360,8 +475,15 @@ void Pipeline::Bind(std::string name) {
 
     vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->pipeline);
+    vkCmdBindDescriptorSets(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->pipelineLayout, 0, 1, &p_descriptorSets->descriptorSets[currentFrame], 0, nullptr);
     vkCmdSetViewport(commandBuffers[currentFrame], 0, 1, &pipelineLayout->viewport);
     vkCmdSetScissor(commandBuffers[currentFrame], 0, 1, &pipelineLayout->scissor);
+    
+    uniformBufferMemory.Update(currentFrame);
+    
+    //------------------------------------------------------------------------------------------//
+    // Rendering objects
+    //------------------------------------------------------------------------------------------//
     
     for (anopol::render::Renderable r : debugRenderables) {
         VkDeviceSize offsets[] = {0};
@@ -371,7 +493,11 @@ void Pipeline::Bind(std::string name) {
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
     if (vkEndCommandBuffer(commandBuffers[currentFrame]) != VK_SUCCESS) anopol_assert("Failed to record command buffer");
-
+    
+    //------------------------------------------------------------------------------------------//
+    // Submitting
+    //------------------------------------------------------------------------------------------//
+    
     VkSemaphore waitSemaphores[] = {imageSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo{};
@@ -390,6 +516,10 @@ void Pipeline::Bind(std::string name) {
     if (vkQueueSubmit(context->presentQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
         anopol_assert("Failed to submit the draw command");
     }
+    
+    //------------------------------------------------------------------------------------------//
+    // Presenting
+    //------------------------------------------------------------------------------------------//
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

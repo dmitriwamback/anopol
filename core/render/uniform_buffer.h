@@ -11,17 +11,48 @@
 namespace anopol::render {
 
 struct anopolStandardUniform {
-    glm::mat4 projection;
-    glm::mat4 lookAt;
-    glm::mat4 model;
+    
+    float t = 0;
 };
 
 class UniformBuffer {
-    VkBuffer uniformBuffer;
-    VkDeviceMemory uniformBufferMemory;
+public:
+    std::vector<VkBuffer>       uniformBuffer = std::vector<VkBuffer>();
+    std::vector<VkDeviceMemory> uniformBufferMemory;
+    std::vector<void*>          uniformBufferMapped;
     
+    float debugTime = 0;
     
+    static UniformBuffer Create();
+    void Update(int currentFrame);
 };
+UniformBuffer UniformBuffer::Create() {
+    
+    VkDeviceSize bufferSize = sizeof(anopolStandardUniform);
+    UniformBuffer buffer = UniformBuffer();
+    
+    buffer.uniformBuffer.resize(anopol_max_frames);
+    buffer.uniformBufferMemory.resize(anopol_max_frames);
+    buffer.uniformBufferMapped.resize(anopol_max_frames);
+    
+    for (size_t i = 0; i < anopol_max_frames; i++) {
+        anopol::ll::createBuffer(bufferSize,
+                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                 buffer.uniformBuffer[i], buffer.uniformBufferMemory[i]);
+        
+        vkMapMemory(context->device, buffer.uniformBufferMemory[i], 0, bufferSize, 0, &buffer.uniformBufferMapped[i]);
+    }
+    
+    return buffer;
+}
+void UniformBuffer::Update(int currentFrame) {
+    anopolStandardUniform asu{};
+    debugTime += 0.1f;
+    asu.t = debugTime;
+        
+    memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
+}
 
 }
 

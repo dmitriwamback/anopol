@@ -22,6 +22,7 @@
 
 
 #define anopol_assert(message) throw std::runtime_error(message)
+#define anopol_max_frames 2
 
 namespace anopol {
     
