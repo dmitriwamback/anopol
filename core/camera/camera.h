@@ -41,7 +41,7 @@ void Camera::initialize() {
     camera.cameraPosition  = glm::vec3(0.0f, 0.0f, 1.0f);
     camera.lookDirection   = glm::vec3(0.0f, 0.0f, -1.0f);
     
-    camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 1.0f, 0.1f, 1000.0f);
+    camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.1f, 1000.0f);
 }
 
 void Camera::update(glm::vec4 movement) {
@@ -69,6 +69,12 @@ void Camera::update(glm::vec4 movement) {
                                        ));
         
         cameraLookAt = glm::lookAt(cameraPosition, cameraPosition + lookDirection, glm::vec3(0.0, 1.0, 0.0));
+        
+        int width, height;
+        glfwGetWindowSize(context->window, &width, &height);
+        float aspect = (float)width/(float)height;
+        
+        cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
     }
 }
 

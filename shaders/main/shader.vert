@@ -15,8 +15,8 @@ layout (location = 1) out float time;
 
 void main() {
     
-    frag = inNormal;
-    time = ubo.t;
+    frag = vec3(UV, 1.0);
+    time = ubo.t/2;
     
     gl_Position = ubo.projection * ubo.lookAt * vec4(inVertex, 1.0);
 }
