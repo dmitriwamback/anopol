@@ -264,7 +264,7 @@ void Pipeline::InitializePipeline() {
     VkPipelineColorBlendAttachmentState color{};
     color.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     color.blendEnable = VK_FALSE;
-
+    
     p_pipeline->colorBlending.sType                         = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     p_pipeline->colorBlending.logicOpEnable                 = VK_FALSE;
     p_pipeline->colorBlending.attachmentCount               = 1;
@@ -323,7 +323,7 @@ void Pipeline::InitializePipeline() {
     //------------------------------------------------------------------------------------------//
     // Creating Graphics Pipeline
     //------------------------------------------------------------------------------------------//
-
+    
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType            = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount   = 1;
@@ -332,7 +332,7 @@ void Pipeline::InitializePipeline() {
     if (vkCreatePipelineLayout(context->device, &pipelineLayoutInfo, nullptr, &pipelineLayout->pipelineLayout) != VK_SUCCESS) anopol_assert("Failed to create pipeline");
     
     VkGraphicsPipelineCreateInfo pipelineInfo{};
-
+    
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format          = context->format;
     colorAttachment.samples         = VK_SAMPLE_COUNT_1_BIT;
@@ -342,22 +342,46 @@ void Pipeline::InitializePipeline() {
     colorAttachment.stencilStoreOp  = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.initialLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachment.finalLayout     = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
+    
     VkAttachmentReference colorAttachmentRef{};
     colorAttachmentRef.attachment   = 0;
     colorAttachmentRef.layout       = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
+    
+    VkAttachmentDescription depth{};
+    depth.format                    = anopol::ll::findDepthFormat();
+    depth.samples                   = VK_SAMPLE_COUNT_1_BIT;
+    depth.loadOp                    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth.stencilLoadOp             = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth.storeOp                   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.stencilStoreOp            = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.initialLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth.finalLayout               = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    
+    VkAttachmentReference depthReference{};
+    depthReference.attachment       = 1;
+    depthReference.layout           = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount    = 1;
     subpass.pColorAttachments       = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthReference;
+    
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depth};
+    
+    VkSubpassDependency dependency{};
+    dependency.srcStageMask         = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstStageMask         = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask        = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo renderpassInfo{};
     renderpassInfo.sType            = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderpassInfo.attachmentCount  = 1;
+    renderpassInfo.attachmentCount  = attachments.size();
+    renderpassInfo.pAttachments     = attachments.data();
     renderpassInfo.subpassCount     = 1;
-    renderpassInfo.pAttachments     = &colorAttachment;
     renderpassInfo.pSubpasses       = &subpass;
+    renderpassInfo.dependencyCount  = 1;
+    renderpassInfo.pDependencies    = &dependency;
 
     pipelineInfo.sType                  = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount             = 2;
@@ -372,12 +396,12 @@ void Pipeline::InitializePipeline() {
     
     for (size_t i = 0; i < anopol::ll::swapchainImageViews.size(); i++) {
 
-        VkImageView attachments[] = {anopol::ll::swapchainImageViews[i]};
+        VkImageView attachments[] = {anopol::ll::swapchainImageViews[i], anopol::ll::depthImageView};
 
         VkFramebufferCreateInfo framebufferCreateInfo{};
         framebufferCreateInfo.sType             = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferCreateInfo.renderPass        = defaultRenderpass;
-        framebufferCreateInfo.attachmentCount   = 1;
+        framebufferCreateInfo.attachmentCount   = 2;
         framebufferCreateInfo.pAttachments      = attachments;
         framebufferCreateInfo.width             = context->extent.width;
         framebufferCreateInfo.height            = context->extent.height;
@@ -385,12 +409,21 @@ void Pipeline::InitializePipeline() {
         
         if (vkCreateFramebuffer(context->device, &framebufferCreateInfo, nullptr, &framebuffers[i]) != VK_SUCCESS) anopol_assert("Couldn't create framebuffers");
     }
+    
+    VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
+    depthStencilInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilInfo.depthTestEnable            = VK_TRUE;
+    depthStencilInfo.depthWriteEnable           = VK_TRUE;
+    depthStencilInfo.depthCompareOp             = VK_COMPARE_OP_LESS;
+    depthStencilInfo.depthBoundsTestEnable      = VK_TRUE;
+    depthStencilInfo.stencilTestEnable          = VK_TRUE;
 
     pipelineInfo.layout             = pipelineLayout->pipelineLayout;
     pipelineInfo.renderPass         = defaultRenderpass;
     pipelineInfo.subpass            = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex  = -1;
+    pipelineInfo.pDepthStencilState = &depthStencilInfo;
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { shaderModules["vert"], shaderModules["frag"] };
 
