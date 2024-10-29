@@ -1,4 +1,4 @@
-#version 440
+#version 450
 
 layout (binding = 0) uniform anopolStandardUniform {
     mat4 projection;
@@ -11,12 +11,16 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 UV;
 
 layout (location = 0) out vec3 frag;
-layout (location = 1) out float time;
+layout (location = 1) out vec3 normal;
+layout (location = 2) out vec3 fragp;
+layout (location = 3) out float time;
 
 void main() {
     
-    frag = vec3(UV, 1.0);
-    time = ubo.t/2;
+    time    = ubo.t/2;
+    frag    = vec3(1.0);
+    normal  = inNormal;
+    fragp   = inVertex;
     
     gl_Position = ubo.projection * ubo.lookAt * vec4(inVertex, 1.0);
 }
