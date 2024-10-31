@@ -8,8 +8,6 @@
 #ifndef pipeline_h
 #define pipeline_h
 
-#include "scene.h"
-
 namespace anopol::pipeline {
 
 class Pipeline {
@@ -66,10 +64,9 @@ public:
     pipeline* p_pipeline;
     descriptorSets* p_descriptorSets;
     
-    std::map<std::string, Scene*> scenes;
     std::map<std::string, VkPipelineShaderStageCreateInfo> shaderModules;
     
-    std::vector<anopol::render::Renderable> debugRenderables = std::vector<anopol::render::Renderable>();
+    std::vector<anopol::render::Renderable*> debugRenderables = std::vector<anopol::render::Renderable*>();
     
     //------------------------------------------------------------------------------------------//
     // Methods
@@ -81,7 +78,6 @@ public:
     static std::vector<char> LoadShaderContent(std::string path);
     
     void Bind(std::string name);
-    void AddScene(Scene* scene, std::string name);
     
 private:
     void InitializePipeline();
@@ -185,7 +181,7 @@ void Pipeline::InitializePipeline() {
     // Debug
     //------------------------------------------------------------------------------------------//
     
-    debugRenderables.push_back(anopol::render::Renderable::Create(true));
+    debugRenderables.push_back(anopol::render::Renderable::Create());
     debugRenderables.push_back(anopol::render::Renderable::Create());
     
     //------------------------------------------------------------------------------------------//
@@ -499,7 +495,7 @@ void Pipeline::Bind(std::string name) {
     renderPassBeginInfo.renderArea.offset   = {0, 0};
     renderPassBeginInfo.renderArea.extent   = context->extent;
 
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.5f, 1.0f}}};
+    VkClearValue clearColor = {{{0.3f, 0.3f, 0.3f, 1.0f}}};
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = &clearColor;
     
@@ -518,10 +514,19 @@ void Pipeline::Bind(std::string name) {
     // Rendering objects
     //------------------------------------------------------------------------------------------//
     
-    for (anopol::render::Renderable r : debugRenderables) {
+    for (anopol::render::Renderable* r : debugRenderables) {
+        
+        uniformBufferMemory.Model(r->position, glm::vec3(45.0f), r->scale, currentFrame);
+        
         VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r.vertexBuffer.vertexBuffer, offsets);
-        vkCmdDraw(commandBuffers[currentFrame], r.vertices.size(), 1, 0, 0);
+        vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
+        if (r->isIndexed) {
+            vkCmdBindIndexBuffer(commandBuffers[currentFrame], r->indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+            vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(r->indices.size()), 1, 0, 0, 0);
+        }
+        else {
+            vkCmdDraw(commandBuffers[currentFrame], static_cast<uint32_t>(r->vertices.size()), 1, 0, 0);
+        }
     }
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
@@ -566,6 +571,14 @@ void Pipeline::Bind(std::string name) {
 
     vkQueuePresentKHR(context->presentQueue, &presentInfo);
 }
+
+
+class ShadowPipeline {
+public:
+    
+};
+
+
 
 }
 

@@ -18,14 +18,17 @@ static anopol::anopolContext* context;
 #include "core/camera/camera.h"
 
 #include "core/render/vertex.h"
-#include "core/render/uniform_buffer.h"
-#include "core/render/vertex_buffer.h"
+#include "core/render/buffer/uniform_buffer.h"
+#include "core/render/buffer/vertex_buffer.h"
+#include "core/render/buffer/index_buffer.h"
+
 #include "core/render/renderable.h"
+#include "core/render/asset.h"
 
 #include "core/pipeline/pipeline.h"
+#include "core/pipeline/scene.h"
 
 namespace anopol {
-
 
 void initialize() {
     
@@ -98,6 +101,8 @@ void initialize() {
         
         glfwPollEvents();
         pipeline.Bind("test");
+        
+        debugTime += 0.1f;
     }
 }
 }

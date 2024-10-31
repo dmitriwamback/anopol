@@ -59,8 +59,8 @@ void Camera::update(glm::vec4 movement) {
         
         glm::vec3 motion = lookDirection;
         
-        cameraPosition += motion * (forward + backward);
-        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right);
+        cameraPosition += motion * (forward + backward) * 5.0f;
+        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right) * 5.0f;
         
         lookDirection = glm::normalize(glm::vec3(
                                        cos(camera.yaw) * cos(camera.pitch),
@@ -89,11 +89,11 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
             float deltaX = xpos - camera.lastMouseX;
             float deltaY = ypos - camera.lastMouseY;
             
-            camera.pitch += deltaY * 0.0035f;
-            camera.yaw += deltaX * 0.0035f;
+            camera.pitch += deltaY * 0.005f;
+            camera.yaw += deltaX * 0.005f;
             
-            if (camera.pitch >  1.5f) camera.pitch =  1.5f;
-            if (camera.pitch < -1.5f) camera.pitch = -1.5f;
+            if (camera.pitch >  1.55f) camera.pitch =  1.55f;
+            if (camera.pitch < -1.55f) camera.pitch = -1.55f;
             
             camera.lookDirection = glm::normalize(glm::vec3(
                                                 cos(camera.yaw) * cos(camera.pitch),

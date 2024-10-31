@@ -3,6 +3,7 @@
 layout (binding = 0) uniform anopolStandardUniform {
     mat4 projection;
     mat4 lookAt;
+    mat4 model;
     float t;
 } ubo;
 
@@ -19,8 +20,8 @@ void main() {
     
     time    = ubo.t/2;
     frag    = vec3(1.0);
-    normal  = inNormal;
-    fragp   = inVertex;
+    normal  = mat3(transpose(inverse(ubo.model))) * inNormal;
+    fragp   = (model * vec4(inVertex, 1.0)).xyz;
     
-    gl_Position = ubo.projection * ubo.lookAt * vec4(inVertex, 1.0);
+    gl_Position = ubo.projection * ubo.lookAt * ubo.model * vec4(inVertex, 1.0);
 }

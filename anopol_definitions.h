@@ -13,6 +13,10 @@
 #include <array>
 #include <fstream>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include <glm/glm.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
@@ -23,6 +27,7 @@
 
 #define anopol_assert(message) throw std::runtime_error(message)
 #define anopol_max_frames 2
+float debugTime = 0;
 
 namespace anopol {
     
@@ -104,6 +109,38 @@ bool checkValidationLayerSupport() {
         if (!layerFound) return false;
     }
     return true;
+}
+
+glm::mat4 eulerRotation(glm::vec3 rotationDegrees) {
+    
+    float xangle = (rotationDegrees.x / 180.0f) * 3.14159265358f;
+    float cosx = cos(xangle);
+    float sinx = sin(xangle);
+    
+    float yangle = (rotationDegrees.y / 180.0f) * 3.14159265358f;
+    float cosy = cos(yangle);
+    float siny = sin(yangle);
+    
+    float zangle = (rotationDegrees.z / 180.0f) * 3.14159265358f;
+    float cosz = cos(zangle);
+    float sinz = sin(zangle);
+    
+    glm::mat4 xRotation = glm::mat4(glm::vec4( 1.0f,  0.0f,  0.0f,  0.0f),
+                                    glm::vec4( 0.0f,  cosx, -sinx,  0.0f),
+                                    glm::vec4( 0.0f,  sinx,  cosx,  0.0f),
+                                    glm::vec4( 0.0f,  0.0f,  0.0f,  1.0f));
+    
+    glm::mat4 yRotation = glm::mat4(glm::vec4( cosy,  0.0f,  siny,  0.0f),
+                                    glm::vec4( 0.0f,  1.0f,  0.0f,  0.0f),
+                                    glm::vec4(-siny,  0.0f,  cosy,  0.0f),
+                                    glm::vec4( 0.0f,  0.0f,  0.0f,  1.0f));
+    
+    glm::mat4 zRotation = glm::mat4(glm::vec4( cosz, -sinz,  0.0f,  0.0f),
+                                    glm::vec4( sinz,  cosz,  0.0f,  0.0f),
+                                    glm::vec4( 0.0f,  0.0f,  1.0f,  0.0f),
+                                    glm::vec4( 0.0f,  0.0f,  0.0f,  1.0f));
+    
+    return xRotation * yRotation * zRotation;
 }
 
 }

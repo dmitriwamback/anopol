@@ -12,7 +12,7 @@ vec3 color = vec3(1.0);
 
 void main() {
 
-    lightPosition = vec3(10.0 * cos(time / 5.0), 10.0, 10.0 * sin(time / 5.0));
+    lightPosition = vec3(0.0, 100.0, 0.0);
 
     float ambientStrength = 0.2;
     vec3 ambientColor = color * ambientStrength;
