@@ -27,7 +27,7 @@ Renderable* Renderable::Create() {
     
     Renderable* renderable = new Renderable();
     
-    renderable->scale    = glm::vec3(1.0f, 1.5f, 0.1f);
+    renderable->scale    = glm::vec3(1.0f, 1.0f, 1.0f);
     renderable->rotation = glm::vec3(0.0f);
     renderable->position = glm::vec3(0.0f);
     

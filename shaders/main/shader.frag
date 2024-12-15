@@ -12,8 +12,6 @@ vec3 color = vec3(1.0);
 
 void main() {
 
-    lightPosition = vec3(0.0, 100.0, 0.0);
-
     float ambientStrength = 0.2;
     vec3 ambientColor = color * ambientStrength;
 
@@ -21,5 +19,5 @@ void main() {
     vec3 lightDirection = normalize(lightPosition - fragp);
     vec3 diff = max(dot(n, lightDirection), 0.0) * vec3(1.0);
 
-    fragc = vec4((diff + ambientColor) * color, 1.0);
+    fragc = vec4(ambientColor + diff, 1.0);
 }

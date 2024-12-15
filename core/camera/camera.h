@@ -42,6 +42,7 @@ void Camera::initialize() {
     camera.lookDirection   = glm::vec3(0.0f, 0.0f, -1.0f);
     
     camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.1f, 1000.0f);
+    camera.cameraProjection[1][1] *= -1;
 }
 
 void Camera::update(glm::vec4 movement) {
@@ -75,6 +76,7 @@ void Camera::update(glm::vec4 movement) {
         float aspect = (float)width/(float)height;
         
         cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
+        camera.cameraProjection[1][1] *= -1;
     }
 }
 
@@ -89,7 +91,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
             float deltaX = xpos - camera.lastMouseX;
             float deltaY = ypos - camera.lastMouseY;
             
-            camera.pitch += deltaY * 0.005f;
+            camera.pitch -= deltaY * 0.005f;
             camera.yaw += deltaX * 0.005f;
             
             if (camera.pitch >  1.55f) camera.pitch =  1.55f;

@@ -67,6 +67,7 @@ public:
     std::map<std::string, VkPipelineShaderStageCreateInfo> shaderModules;
     
     std::vector<anopol::render::Renderable*> debugRenderables = std::vector<anopol::render::Renderable*>();
+    std::vector<anopol::render::Asset*> assets = std::vector<anopol::render::Asset*>();
     
     //------------------------------------------------------------------------------------------//
     // Methods
@@ -172,7 +173,7 @@ void Pipeline::InitializePipeline() {
     pipelineLayout->viewport.minDepth = 0.0f;
     pipelineLayout->viewport.maxDepth = 1.0f;
     pipelineLayout->viewport.width  = context->extent.width;
-    pipelineLayout->viewport.height = context->extent.width;
+    pipelineLayout->viewport.height = context->extent.height;
     
     pipelineLayout->scissor.offset = {0, 0};
     pipelineLayout->scissor.extent = context->extent;
@@ -181,8 +182,14 @@ void Pipeline::InitializePipeline() {
     // Debug
     //------------------------------------------------------------------------------------------//
     
-    debugRenderables.push_back(anopol::render::Renderable::Create());
-    debugRenderables.push_back(anopol::render::Renderable::Create());
+    for (int i = 0; i < 1; i++) {
+        for (int j = 0; j < 1; j++) {
+            anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
+            renderable->position = glm::vec3((i), 0, (j));
+            debugRenderables.push_back(renderable);
+        }
+    }
+    assets.push_back(anopol::render::Asset::Create(""));
     
     //------------------------------------------------------------------------------------------//
     // Creating Uniform Buffers
@@ -248,7 +255,7 @@ void Pipeline::InitializePipeline() {
     p_pipeline->rasterizer.rasterizerDiscardEnable          = VK_FALSE;
     p_pipeline->rasterizer.polygonMode                      = VK_POLYGON_MODE_FILL;
     p_pipeline->rasterizer.lineWidth                        = 1;
-    p_pipeline->rasterizer.cullMode                         = VK_CULL_MODE_BACK_BIT;
+    p_pipeline->rasterizer.cullMode                         = VK_CULL_MODE_FRONT_BIT;
     p_pipeline->rasterizer.frontFace                        = VK_FRONT_FACE_CLOCKWISE;
     p_pipeline->rasterizer.depthBiasEnable                  = VK_FALSE;
     p_pipeline->rasterizer.depthBiasConstantFactor          = 0;
@@ -309,7 +316,7 @@ void Pipeline::InitializePipeline() {
         descriptorWrite.dstSet          = p_descriptorSets->descriptorSets[i];
         descriptorWrite.dstBinding      = 0;
         descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         descriptorWrite.descriptorCount = 1;
         descriptorWrite.pBufferInfo     = &descriptorBufferInfo;
         
@@ -501,6 +508,7 @@ void Pipeline::Bind(std::string name) {
     
     pipelineLayout->viewport.width = static_cast<uint32_t>(context->extent.width);
     pipelineLayout->viewport.height = static_cast<uint32_t>(context->extent.height);
+    pipelineLayout->viewport.x = 0.0f;
 
     vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->pipeline);
@@ -516,7 +524,7 @@ void Pipeline::Bind(std::string name) {
     
     for (anopol::render::Renderable* r : debugRenderables) {
         
-        uniformBufferMemory.Model(r->position, glm::vec3(45.0f), r->scale, currentFrame);
+        uniformBufferMemory.Model(r->position, r->rotation, r->scale, currentFrame);
         
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
@@ -526,6 +534,17 @@ void Pipeline::Bind(std::string name) {
         }
         else {
             vkCmdDraw(commandBuffers[currentFrame], static_cast<uint32_t>(r->vertices.size()), 1, 0, 0);
+        }
+    }
+    
+    for (anopol::render::Asset* a : assets) {
+        uniformBufferMemory.Model(a->position, a->rotation, a->scale, currentFrame);
+        
+        for (anopol::render::Asset::Mesh mesh : a->meshes) {
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &mesh.vertexBuffer.vertexBuffer, offsets);
+            vkCmdBindIndexBuffer(commandBuffers[currentFrame], mesh.indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
         }
     }
     vkCmdEndRenderPass(commandBuffers[currentFrame]);

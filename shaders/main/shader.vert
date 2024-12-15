@@ -21,7 +21,7 @@ void main() {
     time    = ubo.t/2;
     frag    = vec3(1.0);
     normal  = mat3(transpose(inverse(ubo.model))) * inNormal;
-    fragp   = (model * vec4(inVertex, 1.0)).xyz;
+    fragp   = (ubo.model * vec4(inVertex, 1.0)).xyz;
     
     gl_Position = ubo.projection * ubo.lookAt * ubo.model * vec4(inVertex, 1.0);
 }

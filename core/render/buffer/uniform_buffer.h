@@ -65,10 +65,10 @@ void UniformBuffer::Model(glm::vec3 position, glm::vec3 rotation, glm::vec3 scal
     glm::mat4 scaleMatrix = glm::mat4(1.0f);
     scaleMatrix = glm::scale(scaleMatrix, scale);
     
-    glm::mat4 rotationMatrix = anopol::eulerRotation(glm::vec3(debugTime * 10.0f, debugTime * 10.0f, 0.0f));
+    glm::mat4 rotationMatrix = anopol::eulerRotation(rotation);
     
     
-    asu.model = translationMatrix * rotationMatrix * scaleMatrix;
+    asu.model = translationMatrix;
     
     memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
 }
