@@ -20,6 +20,10 @@ public:
         IndexBuffer indexBuffer;
     } Mesh;
     
+    enum ModelType {
+        OBJ
+    };
+    
     std::vector<Mesh> meshes;
     glm::vec3 position, rotation, scale;
     
@@ -32,12 +36,16 @@ private:
 Asset* Asset::Create(std::string assetPath) {
     
     Assimp::Importer importer;
-    const aiScene *scene = importer.ReadFile("/Users/dmitriwamback/Documents/models/azortozha.obj", aiProcess_Triangulate | aiProcess_FlipUVs);
+    const aiScene *scene = importer.ReadFile("/Users/dmitriwamback/Documents/models/wall2.obj",
+                                             aiProcess_Triangulate |
+                                             aiProcess_FlipUVs |
+                                             aiProcess_JoinIdenticalVertices |
+                                             aiProcess_GenSmoothNormals | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph);
     
     Asset* asset = new Asset();
     
     asset->scale    = glm::vec3(1.0f, 1.0f, 1.0f);
-    asset->rotation = glm::vec3(0.0f);
+    asset->rotation = glm::vec3(0.0f, 0.0f, 0.0f);
     asset->position = glm::vec3(0.0f);
     
     aiNode* rootNode = scene->mRootNode;
@@ -80,8 +88,16 @@ void Asset::ProcessMesh(aiMesh *mesh, const aiScene *scene) {
         
         vertex.normal = normalVector;
         
-        vertex.uv = glm::vec2(0.0);
-        
+        if (mesh->mTextureCoords[0]) {
+            glm::vec2 uv;
+            uv.x = mesh->mTextureCoords[0][i].x;
+            uv.y = mesh->mTextureCoords[0][i].y;
+            vertex.uv = uv;
+        }
+        else {
+            vertex.uv = glm::vec2(0.0f);
+        }
+                
         m_vertices.push_back(vertex);
     }
     

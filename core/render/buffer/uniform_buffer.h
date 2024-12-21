@@ -28,7 +28,9 @@ public:
     static UniformBuffer Create();
     void Update(int currentFrame);
     void Model(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale, int currentFrame);
+    void dealloc();
 };
+
 UniformBuffer UniformBuffer::Create() {
     
     VkDeviceSize bufferSize = sizeof(anopolStandardUniform);
@@ -49,14 +51,17 @@ UniformBuffer UniformBuffer::Create() {
     
     return buffer;
 }
+
 void UniformBuffer::Update(int currentFrame) {
         
     asu.t = 0.0f;
     asu.projection = anopol::camera::camera.cameraProjection;
     asu.lookAt = anopol::camera::camera.cameraLookAt;
-            
+
     memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
+    
 }
+
 void UniformBuffer::Model(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale, int currentFrame) {
     
     glm::mat4 translationMatrix = glm::mat4(1.0f);
@@ -67,10 +72,19 @@ void UniformBuffer::Model(glm::vec3 position, glm::vec3 rotation, glm::vec3 scal
     
     glm::mat4 rotationMatrix = anopol::eulerRotation(rotation);
     
-    
-    asu.model = translationMatrix;
+    asu.model = rotationMatrix * scaleMatrix * translationMatrix;
     
     memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
+}
+
+void UniformBuffer::dealloc() {
+    
+    for (VkBuffer buffer : uniformBuffer) {
+        vkDestroyBuffer(context->device, buffer, nullptr);
+    }
+    for (VkDeviceMemory deviceMemory : uniformBufferMemory) {
+        vkFreeMemory(context->device, deviceMemory, nullptr);
+    }
 }
 
 }

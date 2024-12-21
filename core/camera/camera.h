@@ -85,6 +85,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
     if (camera.firstPersonView) {
         
     }
+    
     else {
         if (glfwGetMouseButton(context->window, camera.mouseButton)) {
             

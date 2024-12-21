@@ -16,12 +16,15 @@ layout (location = 1) out vec3 normal;
 layout (location = 2) out vec3 fragp;
 layout (location = 3) out float time;
 
+layout (location = 4) out vec2 uv;
+
 void main() {
     
     time    = ubo.t/2;
     frag    = vec3(1.0);
     normal  = mat3(transpose(inverse(ubo.model))) * inNormal;
     fragp   = (ubo.model * vec4(inVertex, 1.0)).xyz;
+    uv      = UV;
     
     gl_Position = ubo.projection * ubo.lookAt * ubo.model * vec4(inVertex, 1.0);
 }

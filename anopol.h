@@ -17,6 +17,11 @@ static anopol::anopolContext* context;
 #include "core/camera/frustum.h"
 #include "core/camera/camera.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "core/render/texture/stb_image.h"
+#include "core/render/texture/material.h"
+#include "core/render/texture/texture.h"
+
 #include "core/render/vertex.h"
 #include "core/render/buffer/uniform_buffer.h"
 #include "core/render/buffer/vertex_buffer.h"
@@ -104,6 +109,11 @@ void initialize() {
         
         debugTime += 0.1f;
     }
+    
+    vkDeviceWaitIdle(context->device);
+    
+    pipeline.CleanUp();
+    anopol::ll::freeMemory();
 }
 }
 

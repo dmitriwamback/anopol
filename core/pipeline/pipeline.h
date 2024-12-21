@@ -33,6 +33,7 @@ public:
         VkPipelineRasterizationStateCreateInfo      rasterizer{};
         VkPipelineViewportStateCreateInfo           viewportState{};
         VkPipelineColorBlendStateCreateInfo         colorBlending{};
+        VkPipelineMultisampleStateCreateInfo        multisample{};
         
         uint32_t imageIndex;
     };
@@ -41,6 +42,44 @@ public:
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> descriptorSets;
     };
+    
+    //------------------------------------------------------------------------------------------//
+    // Shadows
+    //------------------------------------------------------------------------------------------//
+    
+    struct shadow {
+        VkPipeline              shadow, shadowPCF, depthPipeline;
+        VkRenderPass            shadowRenderPass;
+        VkPipelineLayout        shadowPipelineLayout;
+    };
+    
+    struct shadowImage {
+        VkImage                 shadowImage;
+        VkDeviceMemory          mem;
+        VkImageView             shadowImageView;
+        VkSampler               sampler;
+    };
+    
+    struct shadowCascade {
+        VkFramebuffer           framebuffer;
+        VkImageView             cascadeImageView;
+        
+        glm::mat4               lookAtProjectionMatrix;
+        glm::vec3               sunPosition;
+        
+        float depth;
+    };
+    
+    struct shadowPushConstants {
+        glm::vec4 position;
+        uint32_t cascade;
+    };
+    
+    shadow shadowPipelines;
+    shadowImage shadowDepthImage;
+    shadowPushConstants shadowPushConstantsBlock;
+    
+    std::array<shadowCascade, anopol_max_cascades> cascades;
     
     //------------------------------------------------------------------------------------------//
     // Variables
@@ -63,6 +102,7 @@ public:
     layout* pipelineLayout;
     pipeline* p_pipeline;
     descriptorSets* p_descriptorSets;
+    VkDescriptorSetLayout descriptor;
     
     std::map<std::string, VkPipelineShaderStageCreateInfo> shaderModules;
     
@@ -79,11 +119,17 @@ public:
     static std::vector<char> LoadShaderContent(std::string path);
     
     void Bind(std::string name);
+    void CleanUp();
     
 private:
+    
+    VkShaderModule vert, frag;
+    
     void InitializePipeline();
+    void InitializeShadowDepthPass();
     void CreateSynchronizedObjects();
     void CreateCommandBuffers();
+    void RenderScene(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascade);
     VkGraphicsPipelineCreateInfo InitializePipelineInfo();
 };
 
@@ -111,6 +157,9 @@ Pipeline Pipeline::CreatePipeline(std::string shaderFolder) {
     programs["frag"] = fragment;
     
     pipeline.shaderModules = programs;
+    
+    pipeline.vert = vert;
+    pipeline.frag = frag;
 
     pipeline.pipelineLayout = static_cast<Pipeline::layout*>(malloc(1 * sizeof(Pipeline::layout)));
     pipeline.p_pipeline = static_cast<Pipeline::pipeline*>(malloc(1 * sizeof(Pipeline::pipeline)));
@@ -177,6 +226,12 @@ void Pipeline::InitializePipeline() {
     
     pipelineLayout->scissor.offset = {0, 0};
     pipelineLayout->scissor.extent = context->extent;
+    
+    //------------------------------------------------------------------------------------------//
+    // Preparing Cascaded Shadow Maps
+    //------------------------------------------------------------------------------------------//
+    
+    InitializeShadowDepthPass();
     
     //------------------------------------------------------------------------------------------//
     // Debug
@@ -275,6 +330,13 @@ void Pipeline::InitializePipeline() {
     p_pipeline->colorBlending.flags                         = 0;
     p_pipeline->colorBlending.pNext                         = NULL;
     
+    p_pipeline->multisample.sType                           = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    p_pipeline->multisample.sampleShadingEnable             = VK_FALSE;
+    p_pipeline->multisample.rasterizationSamples            = VK_SAMPLE_COUNT_1_BIT;
+    p_pipeline->multisample.minSampleShading                = 1.0f;
+    p_pipeline->multisample.alphaToCoverageEnable           = VK_FALSE;
+    p_pipeline->multisample.alphaToOneEnable                = VK_FALSE;
+    
     //------------------------------------------------------------------------------------------//
     // Uniform Descriptor Sets
     //------------------------------------------------------------------------------------------//
@@ -289,8 +351,6 @@ void Pipeline::InitializePipeline() {
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = 1;
     layoutInfo.pBindings    = &uniformBufferLayoutBinding;
-    
-    VkDescriptorSetLayout descriptor;
     
     if (vkCreateDescriptorSetLayout(context->device, &layoutInfo, nullptr, &descriptor) != VK_SUCCESS) anopol_assert("Failed to create descriptor");
     
@@ -316,7 +376,7 @@ void Pipeline::InitializePipeline() {
         descriptorWrite.dstSet          = p_descriptorSets->descriptorSets[i];
         descriptorWrite.dstBinding      = 0;
         descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrite.descriptorCount = 1;
         descriptorWrite.pBufferInfo     = &descriptorBufferInfo;
         
@@ -420,6 +480,8 @@ void Pipeline::InitializePipeline() {
     depthStencilInfo.depthCompareOp             = VK_COMPARE_OP_LESS;
     depthStencilInfo.depthBoundsTestEnable      = VK_TRUE;
     depthStencilInfo.stencilTestEnable          = VK_TRUE;
+    depthStencilInfo.minDepthBounds             = 0.0f;
+    depthStencilInfo.maxDepthBounds             = 1.0f;
 
     pipelineInfo.layout             = pipelineLayout->pipelineLayout;
     pipelineInfo.renderPass         = defaultRenderpass;
@@ -427,12 +489,16 @@ void Pipeline::InitializePipeline() {
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex  = -1;
     pipelineInfo.pDepthStencilState = &depthStencilInfo;
+    pipelineInfo.pMultisampleState  = &p_pipeline->multisample;
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { shaderModules["vert"], shaderModules["frag"] };
 
     pipelineInfo.pStages = shaderStages;
 
     if (vkCreateGraphicsPipelines(context->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipelineLayout->pipeline) != VK_SUCCESS) anopol_assert("Couldn't create VkPipeline");
+    
+    vkDestroyShaderModule(context->device, vert, nullptr);
+    vkDestroyShaderModule(context->device, frag, nullptr);
 }
 
 void Pipeline::CreateCommandBuffers() {
@@ -525,11 +591,12 @@ void Pipeline::Bind(std::string name) {
     for (anopol::render::Renderable* r : debugRenderables) {
         
         uniformBufferMemory.Model(r->position, r->rotation, r->scale, currentFrame);
+        uniformBufferMemory.Update(currentFrame);
         
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
         if (r->isIndexed) {
-            vkCmdBindIndexBuffer(commandBuffers[currentFrame], r->indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+            vkCmdBindIndexBuffer(commandBuffers[currentFrame], r->indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(r->indices.size()), 1, 0, 0, 0);
         }
         else {
@@ -538,7 +605,9 @@ void Pipeline::Bind(std::string name) {
     }
     
     for (anopol::render::Asset* a : assets) {
+        
         uniformBufferMemory.Model(a->position, a->rotation, a->scale, currentFrame);
+        uniformBufferMemory.Update(currentFrame);
         
         for (anopol::render::Asset::Mesh mesh : a->meshes) {
             VkDeviceSize offsets[] = {0};
@@ -589,15 +658,165 @@ void Pipeline::Bind(std::string name) {
     presentInfo.pImageIndices = &p_pipeline->imageIndex;
 
     vkQueuePresentKHR(context->presentQueue, &presentInfo);
+    vkQueueWaitIdle(context->graphicsQueue);
 }
 
-
-class ShadowPipeline {
-public:
+void Pipeline::InitializeShadowDepthPass() {
     
-};
+    VkFormat depth = anopol::ll::findDepthFormat();
+    
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format          = depth;
+    depthAttachment.samples         = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp          = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp         = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.stencilLoadOp   = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp  = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    
+    VkAttachmentReference depthAttachmentRenference{};
+    depthAttachmentRenference.attachment    = 0;
+    depthAttachmentRenference.layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    
+    VkSubpassDescription depthSubpass{};
+    depthSubpass.pipelineBindPoint          = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    depthSubpass.colorAttachmentCount       = 0;
+    depthSubpass.pDepthStencilAttachment    = &depthAttachmentRenference;
+    
+    std::array<VkSubpassDependency, 2> subpassDependencies;
+    
+    subpassDependencies[0].srcSubpass       = VK_SUBPASS_EXTERNAL;
+    subpassDependencies[0].dstSubpass       = 0;
+    subpassDependencies[0].srcStageMask     = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    subpassDependencies[0].dstStageMask     = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    subpassDependencies[0].srcAccessMask    = VK_ACCESS_SHADER_READ_BIT;
+    subpassDependencies[0].dstAccessMask    = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    subpassDependencies[0].dependencyFlags  = VK_DEPENDENCY_BY_REGION_BIT;
+    
+    subpassDependencies[1].srcSubpass       = 0;
+    subpassDependencies[1].dstSubpass       = VK_SUBPASS_EXTERNAL;
+    subpassDependencies[1].srcStageMask     = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    subpassDependencies[1].dstStageMask     = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    subpassDependencies[1].srcAccessMask    = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    subpassDependencies[1].dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
+    subpassDependencies[1].dependencyFlags  = VK_DEPENDENCY_BY_REGION_BIT;
+    
+    VkRenderPassCreateInfo renderpassCreateInfo{};
+    renderpassCreateInfo.sType            = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderpassCreateInfo.attachmentCount  = 1;
+    renderpassCreateInfo.pAttachments     = &depthAttachment;
+    renderpassCreateInfo.subpassCount     = 1;
+    renderpassCreateInfo.pSubpasses       = &depthSubpass;
+    renderpassCreateInfo.dependencyCount  = static_cast<uint32_t>(subpassDependencies.size());
+    renderpassCreateInfo.pDependencies    = subpassDependencies.data();
+    
+    if (vkCreateRenderPass(context->device, &renderpassCreateInfo, nullptr, &shadowPipelines.shadowRenderPass) != VK_SUCCESS) {
+        anopol_assert("Failed to create shadow depth renderpass");
+    }
+    
+    
+    anopol::ll::createImage(4096,
+                            4096,
+                            depth,
+                            VK_IMAGE_TILING_OPTIMAL,
+                            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                            shadowDepthImage.shadowImage, shadowDepthImage.mem);
+    
+    shadowDepthImage.shadowImageView = anopol::ll::createImageView(shadowDepthImage.shadowImage, depth, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D_ARRAY, anopol_max_cascades);
+    
+    for (uint32_t i = 0; i < anopol_max_cascades; i++) {
+        cascades[i].cascadeImageView = anopol::ll::createImageView(shadowDepthImage.shadowImage, depth, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+        
+        VkFramebufferCreateInfo framebufferCreateInfo{};
+        framebufferCreateInfo.sType             = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferCreateInfo.renderPass        = shadowPipelines.shadowRenderPass;
+        framebufferCreateInfo.attachmentCount   = 1;
+        framebufferCreateInfo.pAttachments      = &cascades[i].cascadeImageView;
+        framebufferCreateInfo.width             = 4096;
+        framebufferCreateInfo.height            = 4096;
+        framebufferCreateInfo.layers            = 1;
+        
+        if (vkCreateFramebuffer(context->device, &framebufferCreateInfo, nullptr, &cascades[i].framebuffer) != VK_SUCCESS) {
+            anopol_assert("Failed to create CSM framebuffer");
+        }
+    }
+    
+    VkSamplerCreateInfo samplerCreateInfo{};
+    samplerCreateInfo.sType         = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter     = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter     = VK_FILTER_LINEAR;
+    samplerCreateInfo.mipmapMode    = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.addressModeU  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeV  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeW  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.mipLodBias    = 0.0f;
+    samplerCreateInfo.maxAnisotropy = 1.0f;
+    samplerCreateInfo.minLod        = 0.0f;
+    samplerCreateInfo.maxLod        = 1.0f;
+    samplerCreateInfo.borderColor   = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    if (vkCreateSampler(context->device, &samplerCreateInfo, nullptr, &shadowDepthImage.sampler) != VK_SUCCESS) {
+        anopol_assert("Failed to create shadow sampler");
+    }
+}
 
+void Pipeline::RenderScene(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascade = 0) {
+    
+}
 
+void Pipeline::CleanUp() {
+    
+    for (VkFramebuffer framebuffer : framebuffers) {
+        vkDestroyFramebuffer(context->device, framebuffer, nullptr);
+    }
+    
+    for (shadowCascade cascade : cascades) {
+        vkDestroyFramebuffer(context->device, cascade.framebuffer, nullptr);
+        vkDestroyImageView(context->device, cascade.cascadeImageView, nullptr);
+    }
+    
+    anopol::ll::freeSwapchain();
+    
+    vkDestroyPipeline(context->device, pipelineLayout->pipeline, nullptr);
+    vkDestroyPipelineLayout(context->device, pipelineLayout->pipelineLayout, nullptr);
+    vkDestroyRenderPass(context->device, defaultRenderpass, nullptr);
+    
+    vkFreeCommandBuffers(context->device, ll::commandPool, anopol_max_frames, commandBuffers.data());
+    
+    for (anopol::render::Renderable* renderable : debugRenderables) {
+        renderable->vertexBuffer.dealloc();
+        renderable->indexBuffer.dealloc();
+    }
+    
+    for (anopol::render::Asset* asset : assets) {
+        for (anopol::render::Asset::Mesh mesh : asset->meshes) {
+            mesh.vertexBuffer.dealloc();
+            mesh.indexBuffer.dealloc();
+        }
+    }
+    
+    uniformBufferMemory.dealloc();
+    
+    vkDestroyDescriptorPool(context->device, p_descriptorSets->descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(context->device, descriptor, nullptr);
+    
+    for (size_t i = 0; i < anopol_max_frames; i++) {
+        vkDestroySemaphore(context->device, renderSemaphores[i], nullptr);
+        vkDestroySemaphore(context->device, imageSemaphores[i], nullptr);
+        vkDestroyFence(context->device, inFlightFences[i], nullptr);
+    }
+    
+    vkDestroyImageView(context->device, shadowDepthImage.shadowImageView, nullptr);
+    vkDestroyImage(context->device, shadowDepthImage.shadowImage, nullptr);
+    vkFreeMemory(context->device, shadowDepthImage.mem, nullptr);
+    vkDestroySampler(context->device, shadowDepthImage.sampler, nullptr);
+    vkDestroyRenderPass(context->device, shadowPipelines.shadowRenderPass, nullptr);
+    
+    free(pipelineLayout);
+    free(p_pipeline);
+    free(p_descriptorSets);
+}
 
 }
 

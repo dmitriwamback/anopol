@@ -19,7 +19,7 @@ VkRenderPass renderpass;
 VkCommandPool commandPool;
 VkImage         depthImage;
 VkDeviceMemory  depthImageMemory;
-VkImageView     depthImageView;
+VkImageView     depthImageView, textureImageView;
 
 VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
     
@@ -173,18 +173,43 @@ void memCopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
     endSingleCommandBuffer(commandBuffer);
 }
 
-VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags) {
+void memCopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    
+    VkCommandBuffer commandBuffer = beginSingleCommandBuffer();
+    
+    VkBufferImageCopy region{};
+    
+    region.bufferOffset                     = 0;
+    region.bufferRowLength                  = 0;
+    region.bufferImageHeight                = 0;
+    
+    region.imageSubresource.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel        = 0;
+    region.imageSubresource.baseArrayLayer  = 0;
+    region.imageSubresource.layerCount      = 1;
+    
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {
+        width, height, 1
+    };
+    
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    
+    endSingleCommandBuffer(commandBuffer);
+}
+
+VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags flags, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D, uint32_t numLayers = 1) {
     
     VkImageViewCreateInfo viewCreateInfo{};
     viewCreateInfo.sType                            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewCreateInfo.image                            = image;
-    viewCreateInfo.viewType                         = VK_IMAGE_VIEW_TYPE_2D;
+    viewCreateInfo.viewType                         = viewType;
     viewCreateInfo.format                           = format;
     viewCreateInfo.subresourceRange.aspectMask      = flags;
     viewCreateInfo.subresourceRange.baseMipLevel    = 0;
     viewCreateInfo.subresourceRange.levelCount      = 1;
     viewCreateInfo.subresourceRange.baseArrayLayer  = 0;
-    viewCreateInfo.subresourceRange.layerCount      = 1;
+    viewCreateInfo.subresourceRange.layerCount      = numLayers;
     
     VkImageView imageView;
     if (vkCreateImageView(context->device, &viewCreateInfo, nullptr, &imageView) != VK_SUCCESS) anopol_assert("failed to create image view");
@@ -513,6 +538,35 @@ void initializeVulkanDependenices() {
     
     createDepth();
 }
+
+//------------------------------------------------------------------------------------------//
+// Clean up
+//------------------------------------------------------------------------------------------//
+
+void freeMemory() {
+    
+    vkDestroyCommandPool(context->device, commandPool, nullptr);
+    vkDestroyImageView(context->device, depthImageView, nullptr);
+    vkDestroyImage(context->device, depthImage, nullptr);
+    vkFreeMemory(context->device, depthImageMemory, nullptr);
+    
+    vkDestroyDevice(context->device, nullptr);
+    
+    vkDestroySurfaceKHR(context->instance, context->surface, nullptr);
+    vkDestroyInstance(context->instance, nullptr);
+    glfwDestroyWindow(context->window);
+    glfwTerminate();
+    free(context);
+}
+
+void freeSwapchain() {
+    
+    for (VkImageView imageView : swapchainImageViews) {
+        vkDestroyImageView(context->device, imageView, nullptr);
+    }
+    vkDestroySwapchainKHR(context->device, context->swapchain, nullptr);
+}
+
 }
 
 #endif /* internal_h */

@@ -27,6 +27,8 @@
 
 #define anopol_assert(message) throw std::runtime_error(message)
 #define anopol_max_frames 4
+#define anopol_max_cascades 4
+
 float debugTime = 0;
 
 namespace anopol {
