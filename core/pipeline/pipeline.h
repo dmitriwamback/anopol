@@ -70,12 +70,10 @@ public:
     anopol::render::UniformBuffer   uniformBufferMemory;
     
     std::vector<VkCommandBuffer>    commandBuffers     = std::vector<VkCommandBuffer>();
-    
     std::vector<VkFramebuffer>      framebuffers       = std::vector<VkFramebuffer>();
     std::vector<VkSemaphore>        imageSemaphores    = std::vector<VkSemaphore>(),
                                     renderSemaphores   = std::vector<VkSemaphore>();
-    
-    std::vector<VkFence> inFlightFences             = std::vector<VkFence>();
+    std::vector<VkFence>            inFlightFences     = std::vector<VkFence>();
     
     pipeline*                       anopolMainPipeline;
     pipelineDefinitions*            anopolPipelineDefinitions;
@@ -363,10 +361,17 @@ void Pipeline::InitializePipeline() {
     // Creating Graphics Pipeline
     //------------------------------------------------------------------------------------------//
     
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags    = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushConstantRange.offset        = 0;
+    pushConstantRange.size          = sizeof(anopol::render::anopolStandardPushConstants);
+    
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType            = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount   = 1;
-    pipelineLayoutInfo.pSetLayouts      = &anopolDescriptor;
+    pipelineLayoutInfo.sType                    = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount           = 1;
+    pipelineLayoutInfo.pSetLayouts              = &anopolDescriptor;
+    pipelineLayoutInfo.pushConstantRangeCount   = 1;
+    pipelineLayoutInfo.pPushConstantRanges      = &pushConstantRange;
     
     if (vkCreatePipelineLayout(context->device, &pipelineLayoutInfo, nullptr, &anopolMainPipeline->pipelineLayout) != VK_SUCCESS) anopol_assert("Failed to create pipeline");
     
@@ -569,10 +574,28 @@ void Pipeline::Bind(std::string name) {
     
     for (anopol::render::Renderable* r : debugRenderables) {
         
-        uniformBufferMemory.Model(r->position, r->rotation, r->scale, currentFrame);
         uniformBufferMemory.Update(currentFrame);
         
         VkDeviceSize offsets[] = {0};
+        
+        anopol::render::anopolStandardPushConstants standardPushConstants{};
+        standardPushConstants.scale             = glm::vec4(glm::vec3(10.0f, 0.5f, 10.0f), 1.0f);
+        standardPushConstants.position          = glm::vec4(glm::vec3(1.0f), 1.0f);
+        standardPushConstants.rotation          = glm::vec4(glm::vec3(0.0f), 1.0f);
+        
+        glm::mat4 model = modelMatrix(standardPushConstants.position,
+                                      standardPushConstants.scale,
+                                      standardPushConstants.rotation);
+        
+        standardPushConstants.model = model;
+        
+        vkCmdPushConstants(commandBuffers[currentFrame],
+                           anopolMainPipeline->pipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0,
+                           sizeof(anopol::render::anopolStandardPushConstants),
+                           &standardPushConstants);
+        
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
         if (r->isIndexed) {
             vkCmdBindIndexBuffer(commandBuffers[currentFrame], r->indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -585,11 +608,29 @@ void Pipeline::Bind(std::string name) {
     
     for (anopol::render::Asset* a : assets) {
         
-        uniformBufferMemory.Model(a->position, a->rotation, a->scale, currentFrame);
         uniformBufferMemory.Update(currentFrame);
         
         for (anopol::render::Asset::Mesh mesh : a->meshes) {
             VkDeviceSize offsets[] = {0};
+            
+            anopol::render::anopolStandardPushConstants standardPushConstants{};
+            standardPushConstants.scale             = glm::vec4(glm::vec3(0.5f), 1.0f);
+            standardPushConstants.position          = glm::vec4(glm::vec3(10.0f), 1.0f);
+            standardPushConstants.rotation          = glm::vec4(glm::vec3(0.0f, debugTime, 0.0f), 1.0f);
+            
+            glm::mat4 model = modelMatrix(standardPushConstants.position,
+                                          standardPushConstants.scale,
+                                          standardPushConstants.rotation);
+            
+            standardPushConstants.model = model;
+            
+            vkCmdPushConstants(commandBuffers[currentFrame],
+                               anopolMainPipeline->pipelineLayout,
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                               0,
+                               sizeof(anopol::render::anopolStandardPushConstants),
+                               &standardPushConstants);
+            
             vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &mesh.vertexBuffer.vertexBuffer, offsets);
             vkCmdBindIndexBuffer(commandBuffers[currentFrame], mesh.indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);

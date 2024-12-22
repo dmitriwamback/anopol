@@ -145,4 +145,17 @@ glm::mat4 eulerRotation(glm::vec3 rotationDegrees) {
     return xRotation * yRotation * zRotation;
 }
 
+glm::mat4 modelMatrix(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) {
+    
+    glm::mat4 translationMatrix = glm::mat4(1.0f);
+    translationMatrix = glm::translate(translationMatrix, position);
+    
+    glm::mat4 scaleMatrix = glm::mat4(1.0f);
+    scaleMatrix = glm::scale(scaleMatrix, scale);
+    
+    glm::mat4 rotationMatrix = anopol::eulerRotation(rotation);
+    
+    return translationMatrix * rotationMatrix * scaleMatrix;
+}
+
 }

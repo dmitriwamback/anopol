@@ -16,10 +16,18 @@ std::vector<VkImageView> swapchainImageViews;
 std::vector<VkCommandBuffer> commandbuffers = std::vector<VkCommandBuffer>();
 VkRenderPass renderpass;
 
-VkCommandPool commandPool;
+VkCommandPool   commandPool;
 VkImage         depthImage;
 VkDeviceMemory  depthImageMemory;
 VkImageView     depthImageView, textureImageView;
+
+struct msaaMultisampling {
+    VkImage         image;
+    VkDeviceMemory  mem;
+    VkImageView     view;
+};
+msaaMultisampling multisampling;
+VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
 VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
     
@@ -42,7 +50,34 @@ bool hasStencilComponent(VkFormat format) {
 }
 
 //------------------------------------------------------------------------------------------//
-// Commands
+// Multisampling
+//------------------------------------------------------------------------------------------//
+
+VkSampleCountFlagBits getSampleCount() {
+    
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    
+    vkGetPhysicalDeviceProperties(context->physicalDevice, &physicalDeviceProperties);
+    VkSampleCountFlags count = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    
+    VkSampleCountFlags samples[] = {
+        VK_SAMPLE_COUNT_64_BIT, VK_SAMPLE_COUNT_32_BIT,
+        VK_SAMPLE_COUNT_16_BIT, VK_SAMPLE_COUNT_8_BIT,
+        VK_SAMPLE_COUNT_4_BIT,  VK_SAMPLE_COUNT_2_BIT,
+    };
+    
+    if (count & VK_SAMPLE_COUNT_64_BIT) return VK_SAMPLE_COUNT_64_BIT;
+    if (count & VK_SAMPLE_COUNT_32_BIT) return VK_SAMPLE_COUNT_32_BIT;
+    if (count & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT;
+    if (count & VK_SAMPLE_COUNT_8_BIT)  return VK_SAMPLE_COUNT_8_BIT;
+    if (count & VK_SAMPLE_COUNT_4_BIT)  return VK_SAMPLE_COUNT_4_BIT;
+    if (count & VK_SAMPLE_COUNT_2_BIT)  return VK_SAMPLE_COUNT_2_BIT;
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
+//------------------------------------------------------------------------------------------//
+// Commandbuffer
 //------------------------------------------------------------------------------------------//
 
 VkCommandBuffer beginSingleCommandBuffer() {
@@ -79,6 +114,10 @@ void endSingleCommandBuffer(VkCommandBuffer commandBuffer) {
     
     vkFreeCommandBuffers(context->device, commandPool, 1, &commandBuffer);
 }
+
+//------------------------------------------------------------------------------------------//
+// Image Layout Transition
+//------------------------------------------------------------------------------------------//
 
 void imageLayoutTransition(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
     
@@ -218,6 +257,10 @@ VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags f
     return imageView;
 }
 
+//------------------------------------------------------------------------------------------//
+// Image
+//------------------------------------------------------------------------------------------//
+
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t arrayLayers = 1) {
     
     VkImageCreateInfo imageCreateInfo{};
@@ -347,7 +390,9 @@ VkPhysicalDevice findPhysicalDevice(std::vector<VkPhysicalDevice> devices) {
     
     for (VkPhysicalDevice device : devices) {
         
-        if (isPhysicalDeviceSuitable(device)) return device;
+        if (isPhysicalDeviceSuitable(device)) {
+            return device;
+        }
     }
     
     anopol_assert("Could not find a suitable VkPhysicalDevice");
@@ -524,6 +569,8 @@ void initializeVulkanDependenices() {
     vkEnumeratePhysicalDevices(context->instance, &physicalDeviceCount, physicalDevices.data());
     
     context->physicalDevice = findPhysicalDevice(physicalDevices);
+    msaaSamples = getSampleCount();
+    
     createDevice();
     createSwapchain();
     

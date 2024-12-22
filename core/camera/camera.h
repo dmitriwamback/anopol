@@ -38,7 +38,7 @@ void Camera::initialize() {
     
     camera.lockCamera      = false;
     camera.firstPersonView = false;
-    camera.cameraPosition  = glm::vec3(0.0f, 0.0f, 4.0f);
+    camera.cameraPosition  = glm::vec3(0.0f, 6.0f, 4.0f);
     camera.lookDirection   = glm::vec3(0.0f, 0.0f, -1.0f);
     
     camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.1f, 1000.0f);

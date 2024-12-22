@@ -14,7 +14,7 @@ struct anopolStandardUniform {
     
     glm::mat4 projection;
     glm::mat4 lookAt;
-    glm::mat4 model;
+    glm::vec3 cameraPosition;
     float t;
 };
 anopolStandardUniform asu{};
@@ -57,24 +57,10 @@ void UniformBuffer::Update(int currentFrame) {
     asu.t = 0.0f;
     asu.projection = anopol::camera::camera.cameraProjection;
     asu.lookAt = anopol::camera::camera.cameraLookAt;
+    asu.cameraPosition = anopol::camera::camera.cameraPosition;
 
     memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
     
-}
-
-void UniformBuffer::Model(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale, int currentFrame) {
-    
-    glm::mat4 translationMatrix = glm::mat4(1.0f);
-    translationMatrix = glm::translate(translationMatrix, position);
-    
-    glm::mat4 scaleMatrix = glm::mat4(1.0f);
-    scaleMatrix = glm::scale(scaleMatrix, scale);
-    
-    glm::mat4 rotationMatrix = anopol::eulerRotation(rotation);
-    
-    asu.model = rotationMatrix * scaleMatrix * translationMatrix;
-    
-    memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
 }
 
 void UniformBuffer::dealloc() {
