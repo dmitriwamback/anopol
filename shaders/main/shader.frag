@@ -9,11 +9,26 @@ layout (location = 3) in float time;
 layout (location = 4) in vec2 uv;
 layout (location = 5) in vec3 cameraPosition;
 
+
+struct anopolStandardPushConstants {
+    vec4 scale;
+    vec4 position;
+    vec4 rotation;
+    mat4 model;
+    int instanced;
+};
+layout (push_constant) uniform PushConstant {
+    anopolStandardPushConstants object;
+} pushConstants;
+
+
 vec3 lightPosition = vec3(0.0, 4.0, 0.0);
 vec3 lightColor = vec3(1.0, 0.0, 1.0);
 vec3 color = vec3(1.0);
 
 void main() {
+
+    //if (pushConstants.object.instanced == 1) { color = vec3(1.0, 0.0, 0.0); }
 
     float ambientStrength = 0.2;
     vec3 ambientColor = color * ambientStrength;
@@ -29,6 +44,10 @@ void main() {
 
     float spec = pow(max(dot(viewDirection, reflectDirection), 0.0), 8.0);
     vec3 specular = lightColor * spec;
+
+    vec2 xuv = fragp.zy * pushConstants.object.scale.x;
+    vec2 yuv = fragp.xz * pushConstants.object.scale.y;
+    vec2 zuv = fragp.xy * pushConstants.object.scale.z;
 
     fragc = vec4(diff + specular + ambientColor, 1.0);
 }

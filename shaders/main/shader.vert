@@ -5,19 +5,30 @@ struct anopolStandardPushConstants {
     vec4 position;
     vec4 rotation;
     mat4 model;
+    int instanced;
 };
 
-layout (binding = 0) uniform anopolStandardUniform {
+struct instanceProperties {
+    mat4 model;
+    vec4 color;
+};
+
+layout (push_constant, std430) uniform PushConstant {
+    anopolStandardPushConstants object;
+} pushConstants;
+
+layout (std140, binding = 1) readonly buffer InstanceBuffer {
+    instanceProperties properties[];
+};
+
+
+layout (std140, binding = 2) uniform anopolStandardUniform {
     mat4 projection;
     mat4 lookAt;
 
     vec3 cameraPosition;
     float t;
 } ubo;
-
-layout (push_constant) uniform PushConstant {
-    anopolStandardPushConstants object;
-} pushConstants;
 
 layout (location = 0) in vec3 inVertex;
 layout (location = 1) in vec3 inNormal;
@@ -40,5 +51,10 @@ void main() {
     uv      = UV;
     cameraPosition = ubo.cameraPosition;
     
-    gl_Position = ubo.projection * ubo.lookAt * pushConstants.object.model * vec4(inVertex, 1.0);
+    if (true) {
+        gl_Position = ubo.projection * ubo.lookAt * pushConstants.object.model * vec4(inVertex, 1.0);
+    }
+    else {
+        gl_Position = ubo.projection * ubo.lookAt * properties[gl_InstanceIndex].model * vec4(inVertex, 1.0);
+    }
 }
