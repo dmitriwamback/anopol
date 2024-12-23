@@ -60,8 +60,8 @@ void Camera::update(glm::vec4 movement) {
         
         glm::vec3 motion = lookDirection;
         
-        cameraPosition += motion * (forward + backward) * 5.0f;
-        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right) * 5.0f;
+        cameraPosition += motion * (forward + backward) * 10.0f;
+        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right) * 10.0f;
         
         lookDirection = glm::normalize(glm::vec3(
                                        cos(camera.yaw) * cos(camera.pitch),

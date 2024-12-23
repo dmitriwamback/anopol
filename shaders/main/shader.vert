@@ -46,15 +46,17 @@ void main() {
     
     time    = ubo.t/2;
     frag    = vec3(1.0);
-    normal  = mat3(transpose(inverse(pushConstants.object.model))) * inNormal;
-    fragp   = (pushConstants.object.model * vec4(inVertex, 1.0)).xyz;
     uv      = UV;
     cameraPosition = ubo.cameraPosition;
     
-    if (true) {
+    if (pushConstants.object.instanced == 0) {
         gl_Position = ubo.projection * ubo.lookAt * pushConstants.object.model * vec4(inVertex, 1.0);
+        normal  = mat3(transpose(inverse(pushConstants.object.model))) * inNormal;
+        fragp   = (pushConstants.object.model * vec4(inVertex, 1.0)).xyz;
     }
     else {
         gl_Position = ubo.projection * ubo.lookAt * properties[gl_InstanceIndex].model * vec4(inVertex, 1.0);
+        normal  = mat3(transpose(inverse(properties[gl_InstanceIndex].model))) * inNormal;
+        fragp   = (properties[gl_InstanceIndex].model * vec4(inVertex, 1.0)).xyz;
     }
 }

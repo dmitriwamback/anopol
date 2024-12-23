@@ -8,5 +8,12 @@
 #ifndef instance_model_h
 #define instance_model_h
 
+namespace anopol::render {
+
+class InstanceModel {
+public:
+    
+};
+}
 
 #endif /* instance_model_h */

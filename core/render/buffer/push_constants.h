@@ -15,6 +15,8 @@ struct anopolStandardPushConstants {
     glm::vec4 position;
     glm::vec4 rotation;
     glm::mat4 model;
+    int instanced = false;
+    uint32_t padding = 0;
 };
 
 }

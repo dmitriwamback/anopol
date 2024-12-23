@@ -68,6 +68,7 @@ public:
     VkRenderPass defaultRenderpass;
     
     anopol::render::UniformBuffer   uniformBufferMemory;
+    anopol::render::InstanceBuffer* instanceBuffer;
     
     std::vector<VkCommandBuffer>    commandBuffers     = std::vector<VkCommandBuffer>();
     std::vector<VkFramebuffer>      framebuffers       = std::vector<VkFramebuffer>();
@@ -211,29 +212,43 @@ void Pipeline::InitializePipeline() {
     // Debug
     //------------------------------------------------------------------------------------------//
     
-    for (int i = 0; i < 1; i++) {
-        for (int j = 0; j < 1; j++) {
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
-            renderable->position = glm::vec3((i), 0, (j));
+            renderable->position = glm::vec3((i) * 13.75f, 0, (j) * 13.75f);
+            renderable->scale    = glm::vec3(2.5f, 0.1f, 2.5f);
             debugRenderables.push_back(renderable);
         }
     }
-    assets.push_back(anopol::render::Asset::Create(""));
+    anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
+    
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
+            testAsset->PushInstance(glm::vec3(i * 50.0f, 0.0f, j * 50.0f), glm::vec3(1.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+        }
+    }
+    
+    assets.push_back(testAsset);
     
     //------------------------------------------------------------------------------------------//
-    // Creating Uniform Buffers
+    // Creating Uniform Buffers and Instance Buffers
     //------------------------------------------------------------------------------------------//
     
     uniformBufferMemory = anopol::render::UniformBuffer::Create();
+    instanceBuffer      = new anopol::render::InstanceBuffer();
+    instanceBuffer->appendInstance(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f));
     
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount        = (uint32_t)anopol_max_frames;
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    
+    poolSizes[0].type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount        = (uint32_t)anopol_max_frames;
+    poolSizes[1].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].descriptorCount        = (uint32_t)anopol_max_frames;
     
     VkDescriptorPoolCreateInfo poolCreateInfo{};
     poolCreateInfo.sType            = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolCreateInfo.poolSizeCount    = 1;
-    poolCreateInfo.pPoolSizes       = &poolSize;
+    poolCreateInfo.poolSizeCount    = static_cast<uint32_t>(poolSizes.size());
+    poolCreateInfo.pPoolSizes       = poolSizes.data();
     poolCreateInfo.maxSets          = (uint32_t)anopol_max_frames;
     
     if (vkCreateDescriptorPool(context->device, &poolCreateInfo, nullptr, &anopolDescriptorSets->descriptorPool) != VK_SUCCESS) anopol_assert("Failed to create descriptor pool");
@@ -316,15 +331,23 @@ void Pipeline::InitializePipeline() {
     //------------------------------------------------------------------------------------------//
     
     VkDescriptorSetLayoutBinding uniformBufferLayoutBinding{};
-    uniformBufferLayoutBinding.binding          = 0;
+    uniformBufferLayoutBinding.binding          = 2;
     uniformBufferLayoutBinding.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniformBufferLayoutBinding.descriptorCount  = 1;
     uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT;
     
+    VkDescriptorSetLayoutBinding instanceBufferBinding{};
+    instanceBufferBinding.binding               = 1;
+    instanceBufferBinding.descriptorType        = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    instanceBufferBinding.descriptorCount       = 1;
+    instanceBufferBinding.stageFlags            = VK_SHADER_STAGE_VERTEX_BIT;
+    
+    VkDescriptorSetLayoutBinding bindings[] = {uniformBufferLayoutBinding, instanceBufferBinding};
+    
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings    = &uniformBufferLayoutBinding;
+    layoutInfo.bindingCount = 2;
+    layoutInfo.pBindings    = bindings;
     
     if (vkCreateDescriptorSetLayout(context->device, &layoutInfo, nullptr, &anopolDescriptor) != VK_SUCCESS) anopol_assert("Failed to create descriptor");
     
@@ -340,21 +363,34 @@ void Pipeline::InitializePipeline() {
     if (vkAllocateDescriptorSets(context->device, &descriptorAllocationInfo, anopolDescriptorSets->descriptorSets.data()) != VK_SUCCESS) anopol_assert("Failed to allocate descriptor sets");
     
     for (size_t i = 0; i < anopol_max_frames; i++) {
-        VkDescriptorBufferInfo descriptorBufferInfo{};
-        descriptorBufferInfo.buffer = uniformBufferMemory.uniformBuffer[i];
-        descriptorBufferInfo.offset = 0;
-        descriptorBufferInfo.range  = sizeof(anopol::render::anopolStandardUniform);
         
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet          = anopolDescriptorSets->descriptorSets[i];
-        descriptorWrite.dstBinding      = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo     = &descriptorBufferInfo;
+        VkDescriptorBufferInfo uniformDescriptorBufferInfo{};
+        uniformDescriptorBufferInfo.buffer = uniformBufferMemory.uniformBuffer[i];
+        uniformDescriptorBufferInfo.offset = 0;
+        uniformDescriptorBufferInfo.range  = sizeof(anopol::render::anopolStandardUniform);
         
-        vkUpdateDescriptorSets(context->device, 1, &descriptorWrite, 0, nullptr);
+        VkDescriptorBufferInfo instanceDescriptorBufferInfo{};
+        instanceDescriptorBufferInfo.buffer = testAsset->GetInstances()->instanceBuffer;
+        instanceDescriptorBufferInfo.offset = 0;
+        instanceDescriptorBufferInfo.range  = sizeof(anopol::render::InstanceBuffer);
+        
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        
+        descriptorWrites[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet          = anopolDescriptorSets->descriptorSets[i];
+        descriptorWrites[0].dstBinding      = 2;
+        descriptorWrites[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo     = &uniformDescriptorBufferInfo;
+        
+        descriptorWrites[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet          = anopolDescriptorSets->descriptorSets[i];
+        descriptorWrites[1].dstBinding      = 1;
+        descriptorWrites[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pBufferInfo     = &instanceDescriptorBufferInfo;
+        
+        vkUpdateDescriptorSets(context->device, 2, descriptorWrites.data(), 0, nullptr);
     }
     
     //------------------------------------------------------------------------------------------//
@@ -579,9 +615,10 @@ void Pipeline::Bind(std::string name) {
         VkDeviceSize offsets[] = {0};
         
         anopol::render::anopolStandardPushConstants standardPushConstants{};
-        standardPushConstants.scale             = glm::vec4(glm::vec3(10.0f, 0.5f, 10.0f), 1.0f);
-        standardPushConstants.position          = glm::vec4(glm::vec3(1.0f), 1.0f);
-        standardPushConstants.rotation          = glm::vec4(glm::vec3(0.0f), 1.0f);
+        standardPushConstants.scale             = glm::vec4(r->scale, 1.0f);
+        standardPushConstants.position          = glm::vec4(r->position, 1.0f);
+        standardPushConstants.rotation          = glm::vec4(r->rotation, 1.0f);
+        standardPushConstants.instanced         = false;
         
         glm::mat4 model = modelMatrix(standardPushConstants.position,
                                       standardPushConstants.scale,
@@ -607,22 +644,33 @@ void Pipeline::Bind(std::string name) {
     }
     
     for (anopol::render::Asset* a : assets) {
+                
+        anopol::render::anopolStandardPushConstants standardPushConstants{};
+        standardPushConstants.scale             = glm::vec4(glm::vec3(0.75f), 1.0f);
+        standardPushConstants.position          = glm::vec4(glm::vec3(10.0f), 1.0f);
+        standardPushConstants.rotation          = glm::vec4(glm::vec3(0.0f, 0.0f, 0.0f), 1.0f);
         
-        uniformBufferMemory.Update(currentFrame);
+        glm::mat4 model = modelMatrix(standardPushConstants.position,
+                                      standardPushConstants.scale,
+                                      standardPushConstants.rotation);
         
-        for (anopol::render::Asset::Mesh mesh : a->meshes) {
-            VkDeviceSize offsets[] = {0};
+        standardPushConstants.model = model;
+        
+        std::vector<VkBuffer> vertexBuffers = std::vector<VkBuffer>();
+        
+        if (a->IsInstanced()) {
+            standardPushConstants.instanced = true;
+        }
+        
+        {
+            anopol::render::Asset::Mesh mesh = a->meshes[1];
             
-            anopol::render::anopolStandardPushConstants standardPushConstants{};
-            standardPushConstants.scale             = glm::vec4(glm::vec3(0.5f), 1.0f);
-            standardPushConstants.position          = glm::vec4(glm::vec3(10.0f), 1.0f);
-            standardPushConstants.rotation          = glm::vec4(glm::vec3(0.0f, debugTime, 0.0f), 1.0f);
+            vertexBuffers.push_back(mesh.vertexBuffer.vertexBuffer);
+            if (a->IsInstanced()) {
+                vertexBuffers.push_back(a->GetInstances()->instanceBuffer);
+            }
             
-            glm::mat4 model = modelMatrix(standardPushConstants.position,
-                                          standardPushConstants.scale,
-                                          standardPushConstants.rotation);
-            
-            standardPushConstants.model = model;
+            std::vector<VkDeviceSize> offsets(vertexBuffers.size(), 0);
             
             vkCmdPushConstants(commandBuffers[currentFrame],
                                anopolMainPipeline->pipelineLayout,
@@ -631,9 +679,9 @@ void Pipeline::Bind(std::string name) {
                                sizeof(anopol::render::anopolStandardPushConstants),
                                &standardPushConstants);
             
-            vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &mesh.vertexBuffer.vertexBuffer, offsets);
+            vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets.data());
             vkCmdBindIndexBuffer(commandBuffers[currentFrame], mesh.indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
+            vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(mesh.indices.size()), static_cast<uint32_t>(a->IsInstanced() ? a->GetInstances()->instances.size() : 1), 0, 0, 0);
         }
     }
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
@@ -678,7 +726,6 @@ void Pipeline::Bind(std::string name) {
     presentInfo.pImageIndices = &anopolPipelineDefinitions->imageIndex;
 
     vkQueuePresentKHR(context->presentQueue, &presentInfo);
-    vkQueueWaitIdle(context->graphicsQueue);
 }
 
 void Pipeline::InitializeShadowDepthPass() {
@@ -804,6 +851,7 @@ void Pipeline::CleanUp() {
     }
     
     anopol::ll::freeSwapchain();
+    instanceBuffer->dealloc();
     
     vkDestroyPipeline(context->device, anopolMainPipeline->pipeline, nullptr);
     vkDestroyPipelineLayout(context->device, anopolMainPipeline->pipelineLayout, nullptr);
@@ -821,6 +869,7 @@ void Pipeline::CleanUp() {
             mesh.vertexBuffer.dealloc();
             mesh.indexBuffer.dealloc();
         }
+        if(asset->IsInstanced()) asset->GetInstances()->dealloc();
     }
     
     uniformBufferMemory.dealloc();

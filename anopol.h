@@ -28,6 +28,7 @@ static anopol::anopolContext* context;
 #include "core/render/buffer/uniform_buffer.h"
 #include "core/render/buffer/vertex_buffer.h"
 #include "core/render/buffer/index_buffer.h"
+#include "core/render/buffer/instance_buffer.h"
 #include "core/render/buffer/push_constants.h"
 
 #include "core/render/renderable.h"

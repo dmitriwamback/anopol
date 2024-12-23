@@ -28,7 +28,13 @@ public:
     glm::vec3 position, rotation, scale;
     
     static Asset* Create(std::string assetPath);
+    void PushInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation, glm::vec3 color);
+    bool IsInstanced();
+    
+    InstanceBuffer* GetInstances();
+    
 private:
+    InstanceBuffer* instanceBuffer;
     void ProcessNode(aiNode *node, const aiScene *scene);
     void ProcessMesh(aiMesh *mesh, const aiScene *scene);
 };
@@ -115,6 +121,22 @@ void Asset::ProcessMesh(aiMesh *mesh, const aiScene *scene) {
     m_mesh.indexBuffer.alloc(m_mesh.indices);
     
     meshes.push_back(m_mesh);
+}
+
+void Asset::PushInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation, glm::vec3 color) {
+    
+    if (instanceBuffer == nullptr) {
+        instanceBuffer = new InstanceBuffer();
+    }
+    instanceBuffer->appendInstance(position, scale, rotation, color);
+}
+
+bool Asset::IsInstanced() {
+    return !(instanceBuffer == nullptr);
+}
+
+InstanceBuffer* Asset::GetInstances() {
+    return instanceBuffer;
 }
 
 }
