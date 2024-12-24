@@ -11,6 +11,8 @@
 #include "anopol_definitions.h"
 static anopol::anopolContext* context;
 
+#include "core/math.h"
+
 #include "ll/mem.h"
 #include "ll/internal.h"
 

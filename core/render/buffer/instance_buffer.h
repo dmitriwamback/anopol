@@ -22,27 +22,27 @@ public:
     void* instanceBufferMemoryMapped;
     std::vector<instanceProperties> instances{};
     
-    void alloc(std::vector<glm::vec3> position, std::vector<glm::vec3> scale, std::vector<glm::vec3> rotation, std::vector<glm::vec3> color);
+    void alloc(size_t initialSize);
     void dealloc();
     
     void appendInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation, glm::vec3 color);
+    void allocInstances();
 
 private:
-    void copyMemory();
+    size_t maxInstances;
+    void resize();
+    void flush();
 };
 
-void InstanceBuffer::alloc(std::vector<glm::vec3> position, std::vector<glm::vec3> scale, std::vector<glm::vec3> rotation, std::vector<glm::vec3> color) {
+void InstanceBuffer::alloc(size_t initialSize) {
     
-    for (int i = 0; i < position.size(); i++) {
-        
-        instanceProperties instance{};
-        instance.model = modelMatrix(position[i], scale[i], rotation[i]);
-        instance.color = glm::vec4(color[i], 1.0f);
-        
-        instances.push_back(instance);
-    }
-    dealloc();
-    copyMemory();
+    maxInstances = initialSize;
+    VkDeviceSize bufferSize = sizeof(instanceProperties) * maxInstances;
+    
+    anopol::ll::createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instanceBuffer, instanceBufferMemory);
+    
+    vkMapMemory(context->device, instanceBufferMemory, 0, VK_WHOLE_SIZE, 0, &instanceBufferMemoryMapped);
 }
 
 void InstanceBuffer::dealloc() {
@@ -58,22 +58,49 @@ void InstanceBuffer::appendInstance(glm::vec3 position, glm::vec3 scale, glm::ve
     
     instances.push_back(instance);
     
-    dealloc();
-    copyMemory();
+    if (instances.size() > maxInstances) {
+        resize();
+    }
 }
 
-
-void InstanceBuffer::copyMemory() {
-    
-    VkDeviceSize bufferSize = sizeof(instanceProperties) * instances.size();
-    
-    anopol::ll::createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                             instanceBuffer, instanceBufferMemory);
-    
-    vkMapMemory(context->device, instanceBufferMemory, 0, bufferSize, 0, &instanceBufferMemoryMapped);
+void InstanceBuffer::allocInstances() {
     memcpy(instanceBufferMemoryMapped, instances.data(), sizeof(instanceProperties) * instances.size());
-    vkUnmapMemory(context->device, instanceBufferMemory);
+    flush();
+}
+
+void InstanceBuffer::resize() {
+    
+    maxInstances *= 2;
+    VkDeviceSize bufferSize = sizeof(instanceProperties) * maxInstances;
+    
+    VkBuffer newBuffer;
+    VkDeviceMemory newMemory;
+    
+    anopol::ll::createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             newBuffer, newMemory);
+    
+    void* newMemoryMapped;
+    vkMapMemory(context->device, newMemory, 0, VK_WHOLE_SIZE, 0, &newMemoryMapped);
+    
+    memcpy(newMemoryMapped, instances.data(), sizeof(instanceProperties) * instances.size());
+    
+    dealloc();
+    
+    instanceBuffer              = newBuffer;
+    instanceBufferMemory        = newMemory;
+    instanceBufferMemoryMapped  = newMemoryMapped;
+}
+
+void InstanceBuffer::flush() {
+    
+    VkMappedMemoryRange range{};
+    range.sType     = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    range.memory    = instanceBufferMemory;
+    range.offset    = 0;
+    range.size      = VK_WHOLE_SIZE;
+    
+    vkFlushMappedMemoryRanges(context->device, 1, &range);
 }
 
 }

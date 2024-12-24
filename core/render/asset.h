@@ -29,6 +29,7 @@ public:
     
     static Asset* Create(std::string assetPath);
     void PushInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation, glm::vec3 color);
+    void AllocInstances();
     bool IsInstanced();
     
     InstanceBuffer* GetInstances();
@@ -42,7 +43,7 @@ private:
 Asset* Asset::Create(std::string assetPath) {
     
     Assimp::Importer importer;
-    const aiScene *scene = importer.ReadFile("/Users/dmitriwamback/Documents/models/wall2.obj",
+    const aiScene *scene = importer.ReadFile("/Users/dmitriwamback/Documents/models/untitled.obj",
                                              aiProcess_Triangulate |
                                              aiProcess_FlipUVs |
                                              aiProcess_JoinIdenticalVertices |
@@ -127,8 +128,13 @@ void Asset::PushInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation
     
     if (instanceBuffer == nullptr) {
         instanceBuffer = new InstanceBuffer();
+        instanceBuffer->alloc(1000000);
     }
     instanceBuffer->appendInstance(position, scale, rotation, color);
+}
+
+void Asset::AllocInstances() {
+    instanceBuffer->allocInstances();
 }
 
 bool Asset::IsInstanced() {
@@ -138,6 +144,7 @@ bool Asset::IsInstanced() {
 InstanceBuffer* Asset::GetInstances() {
     return instanceBuffer;
 }
+
 
 }
 
