@@ -22,7 +22,7 @@ layout (push_constant) uniform PushConstant {
 } pushConstants;
 
 
-vec3 lightPosition = vec3(0.0, 4.0, 0.0);
+vec3 lightPosition = vec3(0.0, 1000000.0, 0.0);
 vec3 lightColor = vec3(1.0, 0.0, 1.0);
 vec3 color = vec3(1.0);
 
@@ -31,13 +31,13 @@ void main() {
     //if (pushConstants.object.instanced == 1) { color = vec3(1.0, 0.0, 0.0); }
 
     float ambientStrength = 0.2;
-    vec3 ambientColor = color * ambientStrength;
+    vec3 ambientColor = frag * ambientStrength;
 
     vec3 n = normalize(normal);
     vec3 lightDirection = normalize(lightPosition - fragp);
     vec3 viewDirection = normalize(cameraPosition - fragp);
 
-    vec3 diff = max(dot(n, lightDirection), 0.0) * vec3(1.0);
+    vec3 diff = max(dot(n, lightDirection), 0.0) * frag;
 
     vec3 halfWay = normalize(lightDirection + viewDirection);
     vec3 reflectDirection = reflect(-lightDirection, n);
