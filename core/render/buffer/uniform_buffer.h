@@ -54,7 +54,7 @@ UniformBuffer UniformBuffer::Create() {
 
 void UniformBuffer::Update(int currentFrame) {
         
-    asu.t = 0.0f;
+    asu.t = debugTime;
     asu.projection = anopol::camera::camera.cameraProjection;
     asu.lookAt = anopol::camera::camera.cameraLookAt;
     asu.cameraPosition = anopol::camera::camera.cameraPosition;

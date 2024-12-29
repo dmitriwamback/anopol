@@ -18,6 +18,7 @@ public:
         std::vector<uint32_t>   indices;
         VertexBuffer vertexBuffer;
         IndexBuffer indexBuffer;
+        Asset* parent;
     } Mesh;
     
     enum ModelType {
@@ -120,6 +121,7 @@ void Asset::ProcessMesh(aiMesh *mesh, const aiScene *scene) {
     
     m_mesh.vertexBuffer.alloc(m_mesh.vertices);
     m_mesh.indexBuffer.alloc(m_mesh.indices);
+    m_mesh.parent = this;
     
     meshes.push_back(m_mesh);
 }

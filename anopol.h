@@ -36,6 +36,8 @@ static anopol::anopolContext* context;
 #include "core/render/renderable.h"
 #include "core/render/asset.h"
 
+#include "core/gjk.h"
+
 #include "core/pipeline/pipeline.h"
 #include "core/pipeline/scene.h"
 

@@ -216,21 +216,19 @@ void Pipeline::InitializePipeline() {
         for (int j = 0; j < 2; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i) * 13.75f, 0, (j) * 13.75f);
-            renderable->scale    = glm::vec3(2.5f, 0.1f, 2.5f);
+            renderable->scale    = glm::vec3(1.f, 1.f, 1.f);
             debugRenderables.push_back(renderable);
         }
     }
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
     
-    for (int i = 0; i < 1000; i++) {
-        for (int j = 0; j < 1000; j++) {
+    for (int i = 0; i < 1050; i++) {
+        for (int j = 0; j < 1050; j++) {
             
-            float x = i * 3.f;
-            float z = j * 3.f;
+            float x = i * 2.5f;
+            float z = j * 2.5f;
                         
-            testAsset->PushInstance(glm::vec3(x, 0, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(0.9f,
-                                                                                                                          0.9f,
-                                                                                                                          0.9f));
+            testAsset->PushInstance(glm::vec3(x, 0, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(0.9f, 0.0f, 0.0f));
         }
     }
     testAsset->AllocInstances();
@@ -615,7 +613,7 @@ void Pipeline::Bind(std::string name) {
     //------------------------------------------------------------------------------------------//
     // Rendering objects
     //------------------------------------------------------------------------------------------//
-    
+    int iteration = 0;
     for (anopol::render::Renderable* r : debugRenderables) {
                 
         VkDeviceSize offsets[] = {0};
@@ -632,6 +630,14 @@ void Pipeline::Bind(std::string name) {
         
         standardPushConstants.model = model;
         
+        bool collision = anopol::collision::GJK(r);
+        if (collision) {
+            std::cout << "collision" << iteration << '\n';
+        }
+        else {
+            std::cout << "no collision" << iteration << '\n';
+        }
+        
         vkCmdPushConstants(commandBuffers[currentFrame],
                            anopolMainPipeline->pipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -647,6 +653,7 @@ void Pipeline::Bind(std::string name) {
         else {
             vkCmdDraw(commandBuffers[currentFrame], static_cast<uint32_t>(r->vertices.size()), 1, 0, 0);
         }
+        iteration++;
     }
     
     for (anopol::render::Asset* a : assets) {
@@ -687,106 +694,6 @@ void Pipeline::Bind(std::string name) {
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets.data());
         vkCmdBindIndexBuffer(commandBuffers[currentFrame], mesh.indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(mesh.indices.size()), static_cast<uint32_t>(a->IsInstanced() ? a->GetInstances()->instances.size() : 1), 0, 0, 0);
-    }
-    
-    
-    std::vector<VkCommandBuffer> assetCommandBuffers(assets.size());
-    std::vector<std::thread> threads;
-
-    for (size_t i = 0; i < assets.size(); ++i) {
-        VkCommandBufferAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = ll::commandPool;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = 1;
-
-        if (vkAllocateCommandBuffers(context->device, &allocInfo, &assetCommandBuffers[i]) != VK_SUCCESS) {
-            anopol_assert("Failed to allocate command buffer for asset rendering");
-        }
-    }
-    
-    for (size_t i = 0; i < assets.size(); i++) {
-        threads.push_back(std::thread([&, i]() {
-            
-            VkCommandBufferBeginInfo beginInfo = {};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-            if (vkBeginCommandBuffer(assetCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
-                anopol_assert("Couldn't begin command buffer for asset");
-            }
-            
-            
-            
-            VkRenderPassBeginInfo renderPassBeginInfo{};
-            renderPassBeginInfo.sType               = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            renderPassBeginInfo.renderPass          = defaultRenderpass;
-            renderPassBeginInfo.framebuffer         = framebuffers[anopolPipelineDefinitions->imageIndex];
-            renderPassBeginInfo.renderArea.offset   = {0, 0};
-            renderPassBeginInfo.renderArea.extent   = context->extent;
-
-            VkClearValue clearColor = {{{0.3f, 0.3f, 0.3f, 1.0f}}};
-            renderPassBeginInfo.clearValueCount = 1;
-            renderPassBeginInfo.pClearValues = &clearColor;
-            
-            anopolMainPipeline->viewport.width = static_cast<uint32_t>(context->extent.width);
-            anopolMainPipeline->viewport.height = static_cast<uint32_t>(context->extent.height);
-            anopolMainPipeline->viewport.x = 0.0f;
-
-            vkCmdBeginRenderPass(assetCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-            vkCmdBindPipeline(assetCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, anopolMainPipeline->pipeline);
-            vkCmdBindDescriptorSets(assetCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, anopolMainPipeline->pipelineLayout, 0, 1, &anopolDescriptorSets->descriptorSets[currentFrame], 0, nullptr);
-            vkCmdSetViewport(assetCommandBuffers[i], 0, 1, &anopolMainPipeline->viewport);
-            vkCmdSetScissor(assetCommandBuffers[i], 0, 1, &anopolMainPipeline->scissor);
-            
-            
-            
-            anopol::render::Asset* a = assets[i];
-            
-            anopol::render::anopolStandardPushConstants standardPushConstants{};
-            standardPushConstants.scale             = glm::vec4(glm::vec3(0.75f), 1.0f);
-            standardPushConstants.position          = glm::vec4(glm::vec3(10.0f), 1.0f);
-            standardPushConstants.rotation          = glm::vec4(glm::vec3(0.0f, 0.0f, 0.0f), 1.0f);
-            
-            glm::mat4 model = modelMatrix(standardPushConstants.position,
-                                          standardPushConstants.scale,
-                                          standardPushConstants.rotation);
-            
-            standardPushConstants.model = model;
-            
-            std::vector<VkBuffer> vertexBuffers = std::vector<VkBuffer>();
-            
-            if (a->IsInstanced()) {
-                standardPushConstants.instanced = true;
-            }
-            
-            anopol::render::Asset::Mesh mesh = a->meshes[0];
-            vertexBuffers.push_back(mesh.vertexBuffer.vertexBuffer);
-            if (a->IsInstanced()) {
-                vertexBuffers.push_back(a->GetInstances()->instanceBuffer);
-            }
-            
-            std::vector<VkDeviceSize> offsets(vertexBuffers.size(), 0);
-            
-            vkCmdPushConstants(assetCommandBuffers[i],
-                               anopolMainPipeline->pipelineLayout,
-                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                               0,
-                               sizeof(anopol::render::anopolStandardPushConstants),
-                               &standardPushConstants);
-            
-            vkCmdBindVertexBuffers(assetCommandBuffers[i], 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets.data());
-            vkCmdBindIndexBuffer(assetCommandBuffers[i], mesh.indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(assetCommandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), static_cast<uint32_t>(a->IsInstanced() ? a->GetInstances()->instances.size() : 1), 0, 0, 0);
-            
-            vkCmdEndRenderPass(assetCommandBuffers[i]);
-            
-            if (vkEndCommandBuffer(assetCommandBuffers[i]) != VK_SUCCESS) anopol_assert("Failed to record command buffer");
-        }));
-    }
-    
-    for (auto& t : threads) {
-        t.join();
     }
     
     vkCmdEndRenderPass(commandBuffers[currentFrame]);

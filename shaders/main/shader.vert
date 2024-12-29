@@ -58,6 +58,6 @@ void main() {
         gl_Position = ubo.projection * ubo.lookAt * properties[gl_InstanceIndex].model * vec4(inVertex, 1.0);
         normal  = mat3(transpose(inverse(properties[gl_InstanceIndex].model))) * inNormal;
         fragp   = (properties[gl_InstanceIndex].model * vec4(inVertex, 1.0)).xyz;
-        frag    = properties[gl_InstanceIndex].color.xyz;
+        frag    = properties[gl_InstanceIndex].color.rgb;
     }
 }
