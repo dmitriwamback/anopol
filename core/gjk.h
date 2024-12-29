@@ -50,7 +50,7 @@ bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std
     glm::vec3 direction = glm::vec3(1, 0, 0);
     std::vector<glm::vec3> simplex;
     
-    float cameraRadius = 0.25f;
+    float cameraRadius = 0.05f;
     
     glm::vec3 supportVertex = support(vertices, indices, direction, transformation) - (anopol::camera::camera.cameraPosition + cameraRadius * direction);
     simplex.push_back(supportVertex);
@@ -138,11 +138,17 @@ bool raycast(const Ray& ray, const anopol::render::Renderable* renderable, float
     
     hitDistance = FLT_MAX;
     
+    std::array<glm::vec3, 3> transformation = {
+        renderable->position,
+        renderable->rotation,
+        renderable->scale
+    };
+    
     for (size_t i = 0; i < renderable->indices.size(); i += 3) {
         
-        glm::vec3 v0 = renderable->vertices[renderable->indices[i]].vertex;
-        glm::vec3 v1 = renderable->vertices[renderable->indices[i + 1]].vertex;
-        glm::vec3 v2 = renderable->vertices[renderable->indices[i + 2]].vertex;
+        glm::vec3 v0 = transformVertex(renderable->vertices[renderable->indices[i]].vertex, transformation[0], transformation[1], transformation[2]);
+        glm::vec3 v1 = transformVertex(renderable->vertices[renderable->indices[i + 1]].vertex, transformation[0], transformation[1], transformation[2]);
+        glm::vec3 v2 = transformVertex(renderable->vertices[renderable->indices[i + 2]].vertex, transformation[0], transformation[1], transformation[2]);
         
         glm::vec3 edge1 = v1 - v0;
         glm::vec3 edge2 = v2 - v0;
@@ -195,8 +201,15 @@ bool GJK(const anopol::render::Renderable* renderable) {
     return GJKcollision(renderable->vertices, renderable->indices, transformation);
 }
 
-void resolveCameraPosition() {
+void resolveCameraPosition(const anopol::render::Renderable* renderable) {
+    Ray ray {
+        anopol::camera::camera.cameraPosition, anopol::camera::camera.lookDirection
+    };
     
+    float hitDistance;
+    if (raycast(ray, renderable, hitDistance)) {
+        anopol::camera::camera.cameraPosition -= anopol::camera::camera.lookDirection * (hitDistance);
+    }
 }
 }
 
