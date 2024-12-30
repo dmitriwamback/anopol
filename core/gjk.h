@@ -4,28 +4,33 @@
 //
 //  Created by Dmitri Wamback on 2024-12-29.
 //
-
 #ifndef gjk_h
 #define gjk_h
-
 // GJK Gilbert-Johnson-Keerthi Algorithm
 #include <algorithm>
-
 namespace anopol::collision {
-
 struct Ray {
     glm::vec3 origin;
     glm::vec3 direction;
 };
-
 glm::vec3 transformVertex(glm::vec3 vertex, glm::vec3 position, glm::vec3 rotation, glm::vec3 scale) {
     
-    glm::mat4 transformation = modelMatrix(position, scale, rotation);
-    glm::vec4 newVertex = transformation * glm::vec4(vertex, 1.0);
+    glm::mat4 translationMatrix = glm::mat4(1.0f);
+    translationMatrix = glm::translate(translationMatrix, position);
     
-    return glm::vec3(newVertex.x, newVertex.y, newVertex.z);
-}
+    glm::mat4 scaleMatrix = glm::mat4(1.0f);
+    scaleMatrix = glm::scale(scaleMatrix, scale);
+    
+    glm::mat4 rotationX = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+    glm::mat4 rotationY = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 rotationZ = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
+    glm::mat4 rotationMatrix = rotationZ * rotationY * rotationX;
+    glm::mat4 transformation = scaleMatrix * rotationMatrix * translationMatrix;
+    glm::vec4 newVertex = transformation * glm::vec4(vertex, 1.0f);
+    
+    return glm::vec3(newVertex);
+}
 glm::vec3 support(const std::vector<anopol::render::Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::vec3& direction, std::array<glm::vec3, 3> transformation) {
     
     float maxDot = -FLT_MAX;
@@ -44,23 +49,20 @@ glm::vec3 support(const std::vector<anopol::render::Vertex>& vertices, const std
     
     return bestVertex;
 }
-
 bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std::vector<uint32_t>& indices, std::array<glm::vec3, 3> transformation) {
     
-    glm::vec3 direction = glm::vec3(1, 0, 0);
+    glm::vec3 direction = glm::normalize(anopol::camera::camera.cameraPosition);
     std::vector<glm::vec3> simplex;
-    
-    float cameraRadius = 0.05f;
-    
-    glm::vec3 supportVertex = support(vertices, indices, direction, transformation) - (anopol::camera::camera.cameraPosition + cameraRadius * direction);
+        
+    glm::vec3 supportVertex = support(vertices, indices, direction, transformation) - anopol::camera::camera.cameraPosition;
     simplex.push_back(supportVertex);
     direction = -supportVertex;
     
-    const int MAX_ITERATIONS = 100;
+    const int MAX_ITERATIONS = 50;
     int iterations = 0;
     
     while (iterations < MAX_ITERATIONS) {
-        glm::vec3 newPoint = support(vertices, indices, direction, transformation) - (anopol::camera::camera.cameraPosition + cameraRadius * direction);
+        glm::vec3 newPoint = support(vertices, indices, direction, transformation) - anopol::camera::camera.cameraPosition;
         
         if (glm::dot(newPoint, direction) <= 0) return false;
         
@@ -68,22 +70,23 @@ bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std
         
         glm::vec3 ao = -simplex.back();
         
-        if (simplex.size() == 3) {
-            glm::vec3 ab = simplex[1] - simplex[2];
-            glm::vec3 ac = simplex[0] - simplex[2];
-            glm::vec3 abc = glm::cross(ab, ac);
-            
-            if (glm::dot(glm::cross(abc, ac), ao) > 0) {
-                simplex.erase(simplex.begin());
-                direction = glm::cross(ac, ao);
-            }
-            else if (glm::dot(glm::cross(ab, abc), ao) > 0) {
-                simplex.erase(simplex.begin() + 1);
-                direction = glm::cross(ab, ao);
-            }
-            else {
-                return true;
-            }
+        if (simplex.size() != 3) {
+            iterations++;
+            continue;
+        }
+        glm::vec3 ab = simplex[1] - simplex[2], ac = simplex[0] - simplex[2];
+        glm::vec3 abc = glm::cross(ab, ac);
+        
+        if (glm::dot(glm::cross(abc, ac), ao) > 0) {
+            simplex.erase(simplex.begin());
+            direction = glm::cross(ac, ao);
+        }
+        else if (glm::dot(glm::cross(ab, abc), ao) > 0) {
+            simplex.erase(simplex.begin() + 1);
+            direction = glm::cross(ab, ao);
+        }
+        else {
+            return true;
         }
         direction = ao;
         iterations++;
@@ -91,8 +94,6 @@ bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std
     
     return false;
 }
-
-
 bool raycast(const Ray& ray, const anopol::render::Asset::Mesh* mesh, float& hitDistance) {
     
     bool hit = false;
@@ -130,25 +131,17 @@ bool raycast(const Ray& ray, const anopol::render::Asset::Mesh* mesh, float& hit
     
     return hit;
 }
-
-
 bool raycast(const Ray& ray, const anopol::render::Renderable* renderable, float& hitDistance) {
     
     bool hit = false;
     
     hitDistance = FLT_MAX;
     
-    std::array<glm::vec3, 3> transformation = {
-        renderable->position,
-        renderable->rotation,
-        renderable->scale
-    };
-    
     for (size_t i = 0; i < renderable->indices.size(); i += 3) {
         
-        glm::vec3 v0 = transformVertex(renderable->vertices[renderable->indices[i]].vertex, transformation[0], transformation[1], transformation[2]);
-        glm::vec3 v1 = transformVertex(renderable->vertices[renderable->indices[i + 1]].vertex, transformation[0], transformation[1], transformation[2]);
-        glm::vec3 v2 = transformVertex(renderable->vertices[renderable->indices[i + 2]].vertex, transformation[0], transformation[1], transformation[2]);
+        glm::vec3 v0 = renderable->vertices[renderable->indices[i]].vertex;
+        glm::vec3 v1 = renderable->vertices[renderable->indices[i + 1]].vertex;
+        glm::vec3 v2 = renderable->vertices[renderable->indices[i + 2]].vertex;
         
         glm::vec3 edge1 = v1 - v0;
         glm::vec3 edge2 = v2 - v0;
@@ -175,10 +168,6 @@ bool raycast(const Ray& ray, const anopol::render::Renderable* renderable, float
     
     return hit;
 }
-
-
-
-
 bool GJK(const anopol::render::Asset::Mesh* mesh) {
     
     std::array<glm::vec3, 3> transformation = {
@@ -189,7 +178,6 @@ bool GJK(const anopol::render::Asset::Mesh* mesh) {
     
     return GJKcollision(mesh->vertices, mesh->indices, transformation);
 }
-
 bool GJK(const anopol::render::Renderable* renderable) {
     
     std::array<glm::vec3, 3> transformation = {
@@ -200,17 +188,8 @@ bool GJK(const anopol::render::Renderable* renderable) {
     
     return GJKcollision(renderable->vertices, renderable->indices, transformation);
 }
-
-void resolveCameraPosition(const anopol::render::Renderable* renderable) {
-    Ray ray {
-        anopol::camera::camera.cameraPosition, anopol::camera::camera.lookDirection
-    };
+void resolveCameraPosition() {
     
-    float hitDistance;
-    if (raycast(ray, renderable, hitDistance)) {
-        anopol::camera::camera.cameraPosition -= anopol::camera::camera.lookDirection * (hitDistance);
-    }
 }
 }
-
 #endif /* gjk_h */

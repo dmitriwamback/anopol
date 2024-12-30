@@ -24,6 +24,10 @@
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
+
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 
@@ -144,7 +148,12 @@ glm::mat4 eulerRotation(glm::vec3 rotationDegrees) {
                                     glm::vec4( 0.0f,  0.0f,  1.0f,  0.0f),
                                     glm::vec4( 0.0f,  0.0f,  0.0f,  1.0f));
     
-    return xRotation * yRotation * zRotation;
+    return yRotation * xRotation * zRotation;
+}
+
+glm::mat4 quaternionRotation(glm::vec3 rotationDegrees) {
+    glm::quat q = glm::quat(glm::radians(rotationDegrees));
+    return glm::mat4_cast(q);
 }
 
 glm::mat4 modelMatrix(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) {
@@ -155,7 +164,9 @@ glm::mat4 modelMatrix(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) {
     glm::mat4 scaleMatrix = glm::mat4(1.0f);
     scaleMatrix = glm::scale(scaleMatrix, scale);
     
-    glm::mat4 rotationMatrix = anopol::eulerRotation(rotation);
+    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1, 0, 0)) *
+                                   glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0, 1, 0)) *
+                                   glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0, 0, 1));
     
     return translationMatrix * rotationMatrix * scaleMatrix;
 }
