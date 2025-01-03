@@ -13,32 +13,15 @@ struct Ray {
     glm::vec3 origin;
     glm::vec3 direction;
 };
-glm::vec3 transformVertex(glm::vec3 vertex, glm::vec3 position, glm::vec3 rotation, glm::vec3 scale) {
-    
-    glm::mat4 translationMatrix = glm::mat4(1.0f);
-    translationMatrix = glm::translate(translationMatrix, position);
-    
-    glm::mat4 scaleMatrix = glm::mat4(1.0f);
-    scaleMatrix = glm::scale(scaleMatrix, scale);
-    
-    glm::mat4 rotationX = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 rotationY = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 rotationZ = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    glm::mat4 rotationMatrix = rotationZ * rotationY * rotationX;
-    glm::mat4 transformation = scaleMatrix * rotationMatrix * translationMatrix;
-    glm::vec4 newVertex = transformation * glm::vec4(vertex, 1.0f);
-    
-    return glm::vec3(newVertex);
-}
-glm::vec3 support(const std::vector<anopol::render::Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::vec3& direction, std::array<glm::vec3, 3> transformation) {
+glm::vec3 support(const std::vector<anopol::render::Vertex>& vertices, const std::vector<uint32_t>& indices, const glm::vec3& direction, glm::mat4 model) {
     
     float maxDot = -FLT_MAX;
     glm::vec3 bestVertex;
     
     for (uint32_t index : indices) {
         
-        const glm::vec3& vertex = transformVertex(vertices[index].vertex, transformation[0], transformation[1], transformation[2]);
+        const glm::vec3& vertex = glm::vec3(model * glm::vec4(vertices[index].vertex, 1.0f));
         float dot = glm::dot(vertex, direction);
         
         if (dot > maxDot) {
@@ -49,12 +32,12 @@ glm::vec3 support(const std::vector<anopol::render::Vertex>& vertices, const std
     
     return bestVertex;
 }
-bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std::vector<uint32_t>& indices, std::array<glm::vec3, 3> transformation) {
+bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std::vector<uint32_t>& indices, glm::mat4 model) {
     
     glm::vec3 direction = glm::normalize(anopol::camera::camera.cameraPosition);
     std::vector<glm::vec3> simplex;
         
-    glm::vec3 supportVertex = support(vertices, indices, direction, transformation) - anopol::camera::camera.cameraPosition;
+    glm::vec3 supportVertex = support(vertices, indices, direction, model) - anopol::camera::camera.cameraPosition;
     simplex.push_back(supportVertex);
     direction = -supportVertex;
     
@@ -62,7 +45,7 @@ bool GJKcollision(const std::vector<anopol::render::Vertex>& vertices, const std
     int iterations = 0;
     
     while (iterations < MAX_ITERATIONS) {
-        glm::vec3 newPoint = support(vertices, indices, direction, transformation) - anopol::camera::camera.cameraPosition;
+        glm::vec3 newPoint = support(vertices, indices, direction, model) - anopol::camera::camera.cameraPosition;
         
         if (glm::dot(newPoint, direction) <= 0) return false;
         
@@ -170,23 +153,12 @@ bool raycast(const Ray& ray, const anopol::render::Renderable* renderable, float
 }
 bool GJK(const anopol::render::Asset::Mesh* mesh) {
     
-    std::array<glm::vec3, 3> transformation = {
-        mesh->parent->position,
-        mesh->parent->rotation,
-        mesh->parent->scale
-    };
-    
-    return GJKcollision(mesh->vertices, mesh->indices, transformation);
+    //return GJKcollision(mesh->vertices, mesh->indices, model);
+    return false;
 }
-bool GJK(const anopol::render::Renderable* renderable) {
+bool GJK(const anopol::render::Renderable* renderable, glm::mat4 model) {
     
-    std::array<glm::vec3, 3> transformation = {
-        renderable->position,
-        renderable->rotation,
-        renderable->scale
-    };
-    
-    return GJKcollision(renderable->vertices, renderable->indices, transformation);
+    return GJKcollision(renderable->vertices, renderable->indices, model);
 }
 void resolveCameraPosition() {
     

@@ -217,7 +217,7 @@ void Pipeline::InitializePipeline() {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i) * 15.f, 0, (j) * 15.f);
             renderable->scale    = glm::vec3(1.f, 10.f / (i+j+1), 1.f);
-            renderable->rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+            renderable->rotation = glm::vec3(90.0f, 0.0f, 0.0f);
             debugRenderables.push_back(renderable);
         }
     }
@@ -631,7 +631,7 @@ void Pipeline::Bind(std::string name) {
         
         standardPushConstants.model = model;
         
-        bool collision = anopol::collision::GJK(r);
+        bool collision = anopol::collision::GJK(r, model);
         if (collision) {
             std::cout << "collision" << iteration << '\n';
             //anopol::collision::resolveCameraPosition(r);
