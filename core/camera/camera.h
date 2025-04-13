@@ -12,6 +12,18 @@ namespace anopol::camera {
 
 class Camera {
 public:
+    
+    std::vector<float> vertices = {
+        -0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+    };
+    
     glm::vec3 cameraPosition, lookDirection;
     glm::mat4 cameraProjection, cameraLookAt;
     
@@ -28,6 +40,7 @@ public:
     
     static void initialize();
     void update(glm::vec4 movement);
+    std::vector<float> GetColliderVertices();
 };
 
 Camera camera;
@@ -41,7 +54,7 @@ void Camera::initialize() {
     camera.cameraPosition  = glm::vec3(0.0f, 6.0f, 4.0f);
     camera.lookDirection   = glm::vec3(0.0f, 0.0f, -1.0f);
     
-    camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.1f, 1000.0f);
+    camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.01f, 1000.0f);
     camera.cameraProjection[1][1] *= -1;
 }
 
@@ -107,6 +120,23 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
     }
     camera.lastMouseX = xpos;
     camera.lastMouseY = ypos;
+}
+
+std::vector<float> Camera::GetColliderVertices() {
+    
+    glm::mat4 model = anopol::modelMatrix(cameraPosition, glm::vec3(1.0f), glm::vec3(0.0f));
+    
+    std::vector<float> projectedVertices = std::vector<float>();
+    
+    for (int i = 0; i < vertices.size()/3; i++) {
+        glm::vec3 vertex = glm::vec3(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+        glm::vec3 projected = glm::vec3(model * glm::vec4(vertex, 1.0));
+        projectedVertices.push_back(projected.x);
+        projectedVertices.push_back(projected.y);
+        projectedVertices.push_back(projected.z);
+    }
+    return projectedVertices;
+    
 }
 
 }

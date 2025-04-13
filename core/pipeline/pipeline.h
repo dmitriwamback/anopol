@@ -212,12 +212,12 @@ void Pipeline::InitializePipeline() {
     // Debug
     //------------------------------------------------------------------------------------------//
     
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
+    for (int i = 0; i < 20; i++) {
+        for (int j = 0; j < 20; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i) * 15.f, 0, (j) * 15.f);
-            renderable->scale    = glm::vec3(1.f, 10.f / (i+j+1), 1.f);
-            renderable->rotation = glm::vec3(90.0f, 0.0f, 0.0f);
+            renderable->scale    = glm::vec3(5.f, 5.f, 5.f);
+            renderable->rotation = glm::vec3(90.0f, 45.0f, 20.0f);
             debugRenderables.push_back(renderable);
         }
     }
@@ -631,13 +631,14 @@ void Pipeline::Bind(std::string name) {
         
         standardPushConstants.model = model;
         
-        bool collision = anopol::collision::GJK(r, model);
-        if (collision) {
+        anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
+        if (col.collided) {
             std::cout << "collision" << iteration << '\n';
-            //anopol::collision::resolveCameraPosition(r);
-        }
-        else {
-            std::cout << "no collision" << iteration << '\n';
+            
+            if (glm::dot(col.normal, r->position - anopol::camera::camera.cameraPosition) > 0) {
+                col.normal = -col.normal;
+            }
+            anopol::camera::camera.cameraPosition += col.normal*col.depth;
         }
         
         vkCmdPushConstants(commandBuffers[currentFrame],

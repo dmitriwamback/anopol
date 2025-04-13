@@ -21,6 +21,7 @@ public:
     glm::vec3 position, rotation, scale;
     
     static Renderable* Create();
+    std::vector<float> GetColliderVertices(bool withNormals);
 };
 
 Renderable* Renderable::Create() {
@@ -71,6 +72,29 @@ Renderable* Renderable::Create() {
     
     return renderable;
 }
+
+std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
+    
+    glm::mat4 model = anopol::modelMatrix(position, scale, rotation);
+    
+    std::vector<float> projectedVertices = std::vector<float>();
+    
+    for (int i = 0; i < vertices.size(); i++) {
+        glm::vec3 vertex = glm::vec3(vertices[i].vertex.x, vertices[i].vertex.y, vertices[i].vertex.z);
+        glm::vec3 projected = glm::vec3(model * glm::vec4(vertex, 1.0));
+        
+        projectedVertices.push_back(projected.x);
+        projectedVertices.push_back(projected.y);
+        projectedVertices.push_back(projected.z);
+        if (withNormals) {
+            projectedVertices.push_back(0);
+            projectedVertices.push_back(0);
+            projectedVertices.push_back(0);
+        }
+    }
+    return projectedVertices;
+}
+
 }
 
 #endif /* renderable_h */

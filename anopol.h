@@ -36,7 +36,10 @@ static anopol::anopolContext* context;
 #include "core/render/renderable.h"
 #include "core/render/asset.h"
 
-#include "core/gjk.h"
+#include "core/support.h"
+#include "core/simplex.h"
+#include "core/exapanding_polytope_algorithm.h"
+#include "core/gilbert_johnson_keerthi.h"
 
 #include "core/pipeline/pipeline.h"
 #include "core/pipeline/scene.h"
