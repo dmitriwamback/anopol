@@ -8,5 +8,13 @@
 #ifndef dynamic_upload_h
 #define dynamic_upload_h
 
+namespace anopol::batch {
+
+void DynamicUpload(Batch* batch) {
+    
+}
+
+}
+
 
 #endif /* dynamic_upload_h */

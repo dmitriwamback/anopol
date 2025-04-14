@@ -40,6 +40,7 @@ public:
     
     static void initialize();
     void update(glm::vec4 movement);
+    void updateLookAt();
     std::vector<float> GetColliderVertices();
 };
 
@@ -91,6 +92,10 @@ void Camera::update(glm::vec4 movement) {
         cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
         camera.cameraProjection[1][1] *= -1;
     }
+}
+
+void Camera::updateLookAt() {
+    cameraLookAt = glm::lookAt(cameraPosition, cameraPosition + lookDirection, glm::vec3(0.0, 1.0, 0.0));
 }
 
 static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {

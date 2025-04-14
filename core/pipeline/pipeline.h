@@ -216,8 +216,8 @@ void Pipeline::InitializePipeline() {
         for (int j = 0; j < 20; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i) * 15.f, 0, (j) * 15.f);
-            renderable->scale    = glm::vec3(5.f, 5.f, 7.f);
-            renderable->rotation = glm::vec3(90.0f, 45.0f, 20.0f);
+            renderable->scale    = glm::vec3(5.f, 5.f, 5.f);
+            renderable->rotation = glm::vec3(40.0f, 70.0f, 30.0f);
             debugRenderables.push_back(renderable);
         }
     }
@@ -607,25 +607,24 @@ void Pipeline::Bind(std::string name) {
 
     vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, anopolMainPipeline->pipeline);
-    vkCmdBindDescriptorSets(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, anopolMainPipeline->pipelineLayout, 0, 1, &anopolDescriptorSets->descriptorSets[currentFrame], 0, nullptr);
+    
+    vkCmdBindDescriptorSets(commandBuffers[currentFrame],
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            anopolMainPipeline->pipelineLayout,
+                            0,
+                            1,
+                            &anopolDescriptorSets->descriptorSets[currentFrame],
+                            0,
+                            nullptr);
     vkCmdSetViewport(commandBuffers[currentFrame], 0, 1, &anopolMainPipeline->viewport);
     vkCmdSetScissor(commandBuffers[currentFrame], 0, 1, &anopolMainPipeline->scissor);
     
-    uniformBufferMemory.Update(currentFrame);
-    
-    
-    //------------------------------------------------------------------------------------------//
-    // Rendering objects (Renderables)
-    //------------------------------------------------------------------------------------------//
     int iteration = 0;
+    
+    //------------------------------------------------------------------------------------------//
+    // Camera-Renderable Collision
+    //------------------------------------------------------------------------------------------//
     for (anopol::render::Renderable* r : debugRenderables) {
-                
-        VkDeviceSize offsets[] = {0};
-        
-        //------------------------------------------------------------------------------------------//
-        // Camera-Renderable Collision
-        //------------------------------------------------------------------------------------------//
-        
         anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
         if (col.collided) {
             std::cout << "collision" << iteration << '\n';
@@ -634,7 +633,20 @@ void Pipeline::Bind(std::string name) {
                 col.normal = -col.normal;
             }
             anopol::camera::camera.cameraPosition += col.normal*col.depth;
+            anopol::camera::camera.updateLookAt();
         }
+    }
+    
+    uniformBufferMemory.Update(currentFrame);
+    
+    
+    //------------------------------------------------------------------------------------------//
+    // Rendering objects (Renderables)
+    //------------------------------------------------------------------------------------------//
+    
+    for (anopol::render::Renderable* r : debugRenderables) {
+                
+        VkDeviceSize offsets[] = {0};
         
         //------------------------------------------------------------------------------------------//
         // Push Constants
