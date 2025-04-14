@@ -216,7 +216,7 @@ void Pipeline::InitializePipeline() {
         for (int j = 0; j < 20; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i) * 15.f, 0, (j) * 15.f);
-            renderable->scale    = glm::vec3(5.f, 5.f, 5.f);
+            renderable->scale    = glm::vec3(5.f, 5.f, 7.f);
             renderable->rotation = glm::vec3(90.0f, 45.0f, 20.0f);
             debugRenderables.push_back(renderable);
         }
@@ -226,10 +226,12 @@ void Pipeline::InitializePipeline() {
     for (int i = 0; i < 1050; i++) {
         for (int j = 0; j < 1050; j++) {
             
-            float x = i * 2.5f;
-            float z = j * 2.5f;
+            float x = (i - 1050 / 2) * 2.0f;
+            float z = (j - 1050 / 2) * 2.0f;
+            
+            float y = floor(math::noise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 1039.3f) * 10.0f);
                         
-            testAsset->PushInstance(glm::vec3(x, -10.0f, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(0.9f, 0.0f, 0.0f));
+            testAsset->PushInstance(glm::vec3(x, -50.0f + y, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(1.0f, 1.0f, 0.8f));
         }
     }
     testAsset->AllocInstances();
@@ -611,13 +613,32 @@ void Pipeline::Bind(std::string name) {
     
     uniformBufferMemory.Update(currentFrame);
     
+    
     //------------------------------------------------------------------------------------------//
-    // Rendering objects
+    // Rendering objects (Renderables)
     //------------------------------------------------------------------------------------------//
     int iteration = 0;
     for (anopol::render::Renderable* r : debugRenderables) {
                 
         VkDeviceSize offsets[] = {0};
+        
+        //------------------------------------------------------------------------------------------//
+        // Camera-Renderable Collision
+        //------------------------------------------------------------------------------------------//
+        
+        anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
+        if (col.collided) {
+            std::cout << "collision" << iteration << '\n';
+            
+            if (glm::dot(col.normal, r->position - anopol::camera::camera.cameraPosition) > 0) {
+                col.normal = -col.normal;
+            }
+            anopol::camera::camera.cameraPosition += col.normal*col.depth;
+        }
+        
+        //------------------------------------------------------------------------------------------//
+        // Push Constants
+        //------------------------------------------------------------------------------------------//
         
         anopol::render::anopolStandardPushConstants standardPushConstants{};
         standardPushConstants.scale             = glm::vec4(r->scale, 1.0f);
@@ -631,22 +652,16 @@ void Pipeline::Bind(std::string name) {
         
         standardPushConstants.model = model;
         
-        anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
-        if (col.collided) {
-            std::cout << "collision" << iteration << '\n';
-            
-            if (glm::dot(col.normal, r->position - anopol::camera::camera.cameraPosition) > 0) {
-                col.normal = -col.normal;
-            }
-            anopol::camera::camera.cameraPosition += col.normal*col.depth;
-        }
-        
         vkCmdPushConstants(commandBuffers[currentFrame],
                            anopolMainPipeline->pipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0,
                            sizeof(anopol::render::anopolStandardPushConstants),
                            &standardPushConstants);
+        
+        //------------------------------------------------------------------------------------------//
+        // Rendering
+        //------------------------------------------------------------------------------------------//
         
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
         if (r->isIndexed) {
@@ -659,8 +674,16 @@ void Pipeline::Bind(std::string name) {
         iteration++;
     }
     
+    
+    //------------------------------------------------------------------------------------------//
+    // Rendering Models / Instancing
+    //------------------------------------------------------------------------------------------//
     for (anopol::render::Asset* a : assets) {
-                
+        
+        //------------------------------------------------------------------------------------------//
+        // Push Constants
+        //------------------------------------------------------------------------------------------//
+        
         anopol::render::anopolStandardPushConstants standardPushConstants{};
         standardPushConstants.scale             = glm::vec4(glm::vec3(0.75f), 1.0f);
         standardPushConstants.position          = glm::vec4(glm::vec3(10.0f), 1.0f);
@@ -693,6 +716,10 @@ void Pipeline::Bind(std::string name) {
                            0,
                            sizeof(anopol::render::anopolStandardPushConstants),
                            &standardPushConstants);
+        
+        //------------------------------------------------------------------------------------------//
+        // Rendering
+        //------------------------------------------------------------------------------------------//
         
         vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets.data());
         vkCmdBindIndexBuffer(commandBuffers[currentFrame], mesh.indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);

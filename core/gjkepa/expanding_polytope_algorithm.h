@@ -1,12 +1,12 @@
 //
-//  exapanding_polytope_algorithm.h
+//  expanding_polytope_algorithm.h
 //  anopol
 //
 //  Created by Dmitri Wamback on 2025-04-13.
 //
 
-#ifndef exapanding_polytope_algorithm_h
-#define exapanding_polytope_algorithm_h
+#ifndef expanding_polytope_algorithm_h
+#define expanding_polytope_algorithm_h
 
 namespace anopol::collision {
 
@@ -151,4 +151,4 @@ collision EPA(Simplex& simplex, std::vector<float> colliderA, std::vector<float>
 
 }
 
-#endif /* exapanding_polytope_algorithm_h */
+#endif /* expanding_polytope_algorithm_h */

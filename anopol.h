@@ -11,7 +11,7 @@
 #include "anopol_definitions.h"
 static anopol::anopolContext* context;
 
-#include "core/math.h"
+#include "core/math/math.h"
 
 #include "ll/mem.h"
 #include "ll/internal.h"
@@ -36,10 +36,10 @@ static anopol::anopolContext* context;
 #include "core/render/renderable.h"
 #include "core/render/asset.h"
 
-#include "core/support.h"
-#include "core/simplex.h"
-#include "core/exapanding_polytope_algorithm.h"
-#include "core/gilbert_johnson_keerthi.h"
+#include "core/gjkepa/support.h"
+#include "core/gjkepa/simplex.h"
+#include "core/gjkepa/expanding_polytope_algorithm.h"
+#include "core/gjkepa/gilbert_johnson_keerthi.h"
 
 #include "core/pipeline/pipeline.h"
 #include "core/pipeline/scene.h"

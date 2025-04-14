@@ -24,6 +24,7 @@ int p[512] = {
     251,134,242,193,238,210,144,12,191,179,162,241,181,151,145,25,249,14,29,107,
     49,192,214,131,181,199,106,57,184,84,204,176,115,121,150,145,127,24,150,254,
     138,236,205,93,222,114,167,229,224,172,243,141,128,195,178,166,215,161,156,180,
+    
     151,160,137,91,90,105,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,
     8,99,37,240,21,10,203,190,126,148,247,120,234,75,0,6,197,62,94,252,219,203,
     117,35,11,32,57,177,133,88,237,149,56,87,174,20,125,136,171,168,68,175,74,15,
@@ -66,20 +67,20 @@ double noise(double x, double y, double z) {
     z -= floor(z);
 
     double x2 = fade(x),
-            y2 = fade(y),
-            z2 = fade(z);
+           y2 = fade(y),
+           z2 = fade(z);
 
-    int A = p[x1] + y1, AA = p[A] + z1, AB = p[A + 1] + z1,      // HASH COORDINATES OF
+    int A = p[x1] + y1,     AA = p[A] + z1, AB = p[A + 1] + z1,      // HASH COORDINATES OF
         B = p[x1 + 1] + y1, BA = p[B] + z1, BB = p[B + 1] + z1;      // THE 8 CUBE CORNERS,
 
-    return lerp(z2, lerp(y2, lerp(x2, gradient(p[AA],     x,     y,     z),
-                                        gradient(p[BA],     x - 1, y,     z)),
-                                lerp(x2, gradient(p[AB],     x,     y - 1, z),
-                                        gradient(p[BB],     x - 1, y - 1, z))),
+    return lerp(z2, lerp(y2, lerp(x2, gradient(p[AA],     x,     y,     z   ),
+                                      gradient(p[BA],     x - 1, y,     z   )),
+                             lerp(x2, gradient(p[AB],     x,     y - 1, z   ),
+                                      gradient(p[BB],     x - 1, y - 1, z   ))),
                     lerp(y2, lerp(x2, gradient(p[AA + 1], x,     y,     z - 1),
-                                        gradient(p[BA + 1], x - 1, y,     z - 1)),
-                                lerp(x2, gradient(p[AB + 1], x,     y - 1, z - 1),
-                                        gradient(p[BB + 1], x - 1, y - 1, z - 1))));
+                                      gradient(p[BA + 1], x - 1, y,     z - 1)),
+                             lerp(x2, gradient(p[AB + 1], x,     y - 1, z - 1),
+                                      gradient(p[BB + 1], x - 1, y - 1, z - 1))));
 }
 
 }
