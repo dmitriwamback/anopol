@@ -33,14 +33,53 @@ Renderable* Renderable::Create() {
     renderable->position = glm::vec3(0.0f);
     
     renderable->vertices = {
-        { glm::vec3(-1.0f,  1.0f,  1.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec2(0.0f, 0.0f) },  // 0
-        { glm::vec3( 1.0f,  1.0f,  1.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec2(1.0f, 0.0f) },  // 1
-        { glm::vec3( 1.0f, -1.0f,  1.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec2(1.0f, 1.0f) },  // 2
-        { glm::vec3(-1.0f, -1.0f,  1.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec2(0.0f, 1.0f) },  // 3
-        { glm::vec3(-1.0f,  1.0f, -1.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec2(0.0f, 0.0f) },  // 4
-        { glm::vec3( 1.0f,  1.0f, -1.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec2(1.0f, 0.0f) },  // 5
-        { glm::vec3( 1.0f, -1.0f, -1.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec2(1.0f, 1.0f) },  // 6
-        { glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec2(0.0f, 1.0f) }   // 7
+        // Front face
+            {{-0.5f, -0.5f,  0.5f}, { 0,  0,  1}, {0, 0}},
+            {{ 0.5f, -0.5f,  0.5f}, { 0,  0,  1}, {1, 0}},
+            {{ 0.5f,  0.5f,  0.5f}, { 0,  0,  1}, {1, 1}},
+            {{ 0.5f,  0.5f,  0.5f}, { 0,  0,  1}, {1, 1}},
+            {{-0.5f,  0.5f,  0.5f}, { 0,  0,  1}, {0, 1}},
+            {{-0.5f, -0.5f,  0.5f}, { 0,  0,  1}, {0, 0}},
+
+            // Back face
+            {{ 0.5f, -0.5f, -0.5f}, { 0,  0, -1}, {0, 0}},
+            {{-0.5f, -0.5f, -0.5f}, { 0,  0, -1}, {1, 0}},
+            {{-0.5f,  0.5f, -0.5f}, { 0,  0, -1}, {1, 1}},
+            {{-0.5f,  0.5f, -0.5f}, { 0,  0, -1}, {1, 1}},
+            {{ 0.5f,  0.5f, -0.5f}, { 0,  0, -1}, {0, 1}},
+            {{ 0.5f, -0.5f, -0.5f}, { 0,  0, -1}, {0, 0}},
+
+            // Right face
+            {{ 0.5f, -0.5f,  0.5f}, { 1,  0,  0}, {0, 0}},
+            {{ 0.5f, -0.5f, -0.5f}, { 1,  0,  0}, {1, 0}},
+            {{ 0.5f,  0.5f, -0.5f}, { 1,  0,  0}, {1, 1}},
+            {{ 0.5f,  0.5f, -0.5f}, { 1,  0,  0}, {1, 1}},
+            {{ 0.5f,  0.5f,  0.5f}, { 1,  0,  0}, {0, 1}},
+            {{ 0.5f, -0.5f,  0.5f}, { 1,  0,  0}, {0, 0}},
+
+            // Left face
+            {{-0.5f, -0.5f, -0.5f}, {-1,  0,  0}, {0, 0}},
+            {{-0.5f, -0.5f,  0.5f}, {-1,  0,  0}, {1, 0}},
+            {{-0.5f,  0.5f,  0.5f}, {-1,  0,  0}, {1, 1}},
+            {{-0.5f,  0.5f,  0.5f}, {-1,  0,  0}, {1, 1}},
+            {{-0.5f,  0.5f, -0.5f}, {-1,  0,  0}, {0, 1}},
+            {{-0.5f, -0.5f, -0.5f}, {-1,  0,  0}, {0, 0}},
+
+            // Top face
+            {{-0.5f,  0.5f,  0.5f}, { 0,  1,  0}, {0, 0}},
+            {{ 0.5f,  0.5f,  0.5f}, { 0,  1,  0}, {1, 0}},
+            {{ 0.5f,  0.5f, -0.5f}, { 0,  1,  0}, {1, 1}},
+            {{ 0.5f,  0.5f, -0.5f}, { 0,  1,  0}, {1, 1}},
+            {{-0.5f,  0.5f, -0.5f}, { 0,  1,  0}, {0, 1}},
+            {{-0.5f,  0.5f,  0.5f}, { 0,  1,  0}, {0, 0}},
+
+            // Bottom face
+            {{-0.5f, -0.5f, -0.5f}, { 0, -1,  0}, {0, 0}},
+            {{ 0.5f, -0.5f, -0.5f}, { 0, -1,  0}, {1, 0}},
+            {{ 0.5f, -0.5f,  0.5f}, { 0, -1,  0}, {1, 1}},
+            {{ 0.5f, -0.5f,  0.5f}, { 0, -1,  0}, {1, 1}},
+            {{-0.5f, -0.5f,  0.5f}, { 0, -1,  0}, {0, 1}},
+            {{-0.5f, -0.5f, -0.5f}, { 0, -1,  0}, {0, 0}},
     };
 
     renderable->indices = {
@@ -63,12 +102,9 @@ Renderable* Renderable::Create() {
                 3, 6, 2, 3, 7, 6   // Reversed (CW)
     };
     
-    renderable->isIndexed = true;
+    renderable->isIndexed = false;
     renderable->vertexBuffer = VertexBuffer();
     renderable->vertexBuffer.alloc(renderable->vertices);
-    
-    renderable->indexBuffer = IndexBuffer();
-    renderable->indexBuffer.alloc(renderable->indices);
     
     return renderable;
 }
@@ -80,7 +116,7 @@ std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
     std::vector<float> projectedVertices = std::vector<float>();
     
     for (int i = 0; i < vertices.size(); i++) {
-        glm::vec3 vertex = glm::vec3(vertices[i].vertex.x, vertices[i].vertex.y, vertices[i].vertex.z);
+        glm::vec3 vertex = vertices[i].vertex;
         glm::vec3 projected = glm::vec3(model * glm::vec4(vertex, 1.0));
         
         projectedVertices.push_back(projected.x);

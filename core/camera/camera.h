@@ -92,6 +92,8 @@ void Camera::update(glm::vec4 movement) {
         cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
         camera.cameraProjection[1][1] *= -1;
     }
+    
+    std::cout << camera.cameraPosition.x << " " << camera.cameraPosition.y << " " << camera.cameraPosition.z << "\n";
 }
 
 void Camera::updateLookAt() {
@@ -129,7 +131,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 
 std::vector<float> Camera::GetColliderVertices() {
     
-    glm::mat4 model = anopol::modelMatrix(cameraPosition, glm::vec3(1.0f), glm::vec3(0.0f));
+    glm::mat4 model = anopol::modelMatrix(cameraPosition, glm::vec3(1.5f), glm::vec3(0.0f));
     
     std::vector<float> projectedVertices = std::vector<float>();
     
