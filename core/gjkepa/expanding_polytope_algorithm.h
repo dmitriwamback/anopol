@@ -139,10 +139,9 @@ collision EPA(Simplex& simplex, std::vector<float> colliderA, std::vector<float>
             indices.insert(indices.end(), faces.begin(), faces.end());
             normals.insert(normals.end(), newNormals.begin(), newNormals.end());
         }
-        
     }
      
-    collisionDetection.normal = glm::normalize(min);
+    collisionDetection.normal = min;
     collisionDetection.depth = std::min(mindst + 0.001f, 1e2f);
     collisionDetection.collided = true;
     
