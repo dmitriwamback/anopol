@@ -46,7 +46,6 @@ void MeshCombineGroup::Append(std::vector<anopol::render::Asset*> assets) {
     }
 }
 
-
 }
 
 

@@ -10,11 +10,24 @@
 
 namespace anopol::batch {
 
+enum meshDrawType {
+    indexed, nonIndexed
+};
+
 typedef struct batchDrawInformation {
-    uint32_t first;
+    
+    meshDrawType drawType;
+    
+    uint32_t firstIndex;
     uint32_t indexCount;
     uint32_t vertexOffset;
     uint32_t object;
+    
+    uint32_t firstVertex;
+    uint32_t vertexCount;
+    
+    uint32_t texture;
+    
 } batchDrawInformation;
 
 }

@@ -37,8 +37,8 @@ static anopol::anopolContext* context;
 #include "core/render/asset.h"
 
 #include "core/meshutil/mesh_combine_structs.h"
-#include "core/meshutil/batch.h"
 #include "core/meshutil/mesh_combine.h"
+#include "core/meshutil/batch.h"
 #include "core/meshutil/dynamic_upload.h"
 
 #include "core/gjkepa/support.h"

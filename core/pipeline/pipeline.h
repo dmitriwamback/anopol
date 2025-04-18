@@ -86,6 +86,8 @@ public:
     std::vector<anopol::render::Renderable*>    debugRenderables = std::vector<anopol::render::Renderable*>();
     std::vector<anopol::render::Asset*>         assets = std::vector<anopol::render::Asset*>();
     
+    anopol::batch::Batch testBatch;
+    
     //------------------------------------------------------------------------------------------//
     // Methods
     //------------------------------------------------------------------------------------------//
@@ -212,6 +214,8 @@ void Pipeline::InitializePipeline() {
     // Debug
     //------------------------------------------------------------------------------------------//
     
+    testBatch = anopol::batch::Batch::Create();
+    
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < 20; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
@@ -219,6 +223,7 @@ void Pipeline::InitializePipeline() {
             renderable->scale    = glm::vec3(10.f, 10.f, 10.f);
             renderable->rotation = glm::vec3(70.0f, 0.0f, 0.0f);
             debugRenderables.push_back(renderable);
+            testBatch.Append(renderable);
         }
     }
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
@@ -654,7 +659,7 @@ void Pipeline::Bind(std::string name) {
         //------------------------------------------------------------------------------------------//
         // Push Constants
         //------------------------------------------------------------------------------------------//
-        
+        /*
         anopol::render::anopolStandardPushConstants standardPushConstants{};
         standardPushConstants.scale             = glm::vec4(r->scale, 1.0f);
         standardPushConstants.position          = glm::vec4(r->position, 1.0f);
@@ -673,12 +678,13 @@ void Pipeline::Bind(std::string name) {
                            0,
                            sizeof(anopol::render::anopolStandardPushConstants),
                            &standardPushConstants);
-        
+        */
         //------------------------------------------------------------------------------------------//
         // Rendering
         //------------------------------------------------------------------------------------------//
         
-        vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
+        //vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
+        /*
         if (r->isIndexed) {
             vkCmdBindIndexBuffer(commandBuffers[currentFrame], r->indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(r->indices.size()), 1, 0, 0, 0);
@@ -686,7 +692,43 @@ void Pipeline::Bind(std::string name) {
         else {
             vkCmdDraw(commandBuffers[currentFrame], static_cast<uint32_t>(r->vertices.size()), 1, 0, 0);
         }
+         */
+        
         iteration++;
+    }
+    
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
+    //vkCmdBindIndexBuffer(cmdBuf, testBatch.vertexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    
+    for (anopol::batch::batchDrawInformation drawInfo : testBatch.drawInformation) {
+        
+        anopol::render::anopolStandardPushConstants standardPushConstants{};
+        standardPushConstants.scale             = glm::vec4(testBatch.meshCombineGroup.renderables[drawInfo.object]->scale, 1.0f);
+        standardPushConstants.position          = glm::vec4(testBatch.meshCombineGroup.renderables[drawInfo.object]->position, 1.0f);
+        standardPushConstants.rotation          = glm::vec4(testBatch.meshCombineGroup.renderables[drawInfo.object]->rotation, 1.0f);
+        
+        standardPushConstants.instanced         = false;
+        
+        glm::mat4 model = modelMatrix(standardPushConstants.position,
+                                      standardPushConstants.scale,
+                                      standardPushConstants.rotation);
+        
+        standardPushConstants.model = model;
+        
+        vkCmdPushConstants(commandBuffers[currentFrame],
+                           anopolMainPipeline->pipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0,
+                           sizeof(anopol::render::anopolStandardPushConstants),
+                           &standardPushConstants);
+        
+        if (drawInfo.drawType == anopol::batch::indexed) {
+            vkCmdDrawIndexed(commandBuffers[currentFrame], drawInfo.indexCount, 1, drawInfo.firstIndex, drawInfo.vertexOffset, 0);
+        }
+        else {
+            vkCmdDraw(commandBuffers[currentFrame], drawInfo.vertexCount, 1, drawInfo.firstVertex, 0);
+        }
     }
     
     
@@ -928,6 +970,12 @@ void Pipeline::CleanUp() {
         if(asset->IsInstanced()) asset->GetInstances()->dealloc();
     }
     
+    for (anopol::render::Renderable* renderable : testBatch.meshCombineGroup.renderables) {
+        renderable->vertexBuffer.dealloc();
+        renderable->indexBuffer.dealloc();
+    }
+    testBatch.vertexBuffer.dealloc();
+    testBatch.indexBuffer.dealloc();
     uniformBufferMemory.dealloc();
     
     vkDestroyDescriptorPool(context->device, anopolDescriptorSets->descriptorPool, nullptr);

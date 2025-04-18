@@ -5,12 +5,15 @@
   <li>Basic rendering + depth testing</li>
   <li>Instanced rendering</li>
   <li>Uniform buffer + push constants</li>
+  <li>Collision detection (Gilbert-Johnson-Keerthi (GJK) + Expanding Polytope Algorithm (EPA))</li>
 </ul>
 <p>Future features:</p>
 <ul>
   <li>Cascaded Shadow Mapping (CSM) / Parallel-Split Shadow Mapping (PSSM)</li>
   <li>Texture sampling</li>
   <li>Off-screen rendering</li>
+  <li>Approximate Convex Decomposition</li>
+  <li>Combining meshes (batching)</li>
 </ul>
 <p>Necessary libraries:</p>
 <ul>
