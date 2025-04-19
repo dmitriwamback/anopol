@@ -14,6 +14,7 @@ struct anopolStandardPushConstants {
     vec4 scale;
     vec4 position;
     vec4 rotation;
+    vec4 color;
     mat4 model;
     int instanced;
 };
@@ -22,13 +23,16 @@ layout (push_constant) uniform PushConstant {
 } pushConstants;
 
 
-vec3 lightPosition = vec3(0.0, 10.0, 0.0);
-vec3 lightColor = vec3(1.0, 0.0, 1.0);
+vec3 lightPosition = vec3(10000.0, 10000.0, 10000.0);
+vec3 lightColor = vec3(0.0, 1.0, 0.0);
 vec3 color = vec3(1.0);
 
 void main() {
 
     if (pushConstants.object.instanced == 1) { color = frag; }
+    else {
+        color = pushConstants.object.color.rgb;
+    }
 
     float ambientStrength = 0.2;
     vec3 ambientColor = frag * ambientStrength;
@@ -42,7 +46,7 @@ void main() {
     vec3 halfWay = normalize(lightDirection + viewDirection);
     vec3 reflectDirection = reflect(-lightDirection, n);
 
-    float spec = pow(max(dot(viewDirection, reflectDirection), 0.0), 8.0);
+    float spec = pow(max(dot(n, halfWay), 0.0), 8.0);
     vec3 specular = lightColor * spec;
 
     vec2 xuv = fragp.zy * pushConstants.object.scale.x;
