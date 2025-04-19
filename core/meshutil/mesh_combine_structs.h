@@ -30,6 +30,11 @@ typedef struct batchDrawInformation {
     
 } batchDrawInformation;
 
+typedef struct batchIndirectTransformation {
+    glm::mat4 model;
+    int instanceID;
+};
+
 }
 
 #endif /* mesh_combine_structs_h */

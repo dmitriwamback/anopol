@@ -218,8 +218,8 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
-    for (int i = 0; i < 40; i++) {
-        for (int j = 0; j < 40; j++) {
+    for (int i = 0; i < 180; i++) {
+        for (int j = 0; j < 180; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - 20) * 15.f, 0, (j - 20) * 15.f);
             renderable->scale    = glm::vec3(10.f, 10.f, 10.f);
@@ -229,6 +229,7 @@ void Pipeline::InitializePipeline() {
         }
     }
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
+    testBatch.Combine();
     
     for (int i = 0; i < 1050; i++) {
         for (int j = 0; j < 1050; j++) {
@@ -345,20 +346,20 @@ void Pipeline::InitializePipeline() {
     anopolPipelineDefinitions->multisample.alphaToOneEnable                = VK_FALSE;
     
     //------------------------------------------------------------------------------------------//
-    // Uniform Descriptor Sets
+    // Uniform, Instance, Batching Descriptor Sets
     //------------------------------------------------------------------------------------------//
-    
-    VkDescriptorSetLayoutBinding uniformBufferLayoutBinding{};
-    uniformBufferLayoutBinding.binding          = 2;
-    uniformBufferLayoutBinding.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformBufferLayoutBinding.descriptorCount  = 1;
-    uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT;
     
     VkDescriptorSetLayoutBinding instanceBufferBinding{};
     instanceBufferBinding.binding               = 1;
     instanceBufferBinding.descriptorType        = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     instanceBufferBinding.descriptorCount       = 1;
     instanceBufferBinding.stageFlags            = VK_SHADER_STAGE_VERTEX_BIT;
+    
+    VkDescriptorSetLayoutBinding uniformBufferLayoutBinding{};
+    uniformBufferLayoutBinding.binding          = 2;
+    uniformBufferLayoutBinding.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformBufferLayoutBinding.descriptorCount  = 1;
+    uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT;
     
     VkDescriptorSetLayoutBinding batchingBinding{};
     batchingBinding.binding                     = 3;
@@ -639,51 +640,51 @@ void Pipeline::Bind(std::string name) {
     //------------------------------------------------------------------------------------------//
     // Camera-Renderable Collision
     //------------------------------------------------------------------------------------------//
-    int threadCount = std::thread::hardware_concurrency();
-    int chunkSize = testBatch.meshCombineGroup.renderables.size() / threadCount;
+    int hardwareThreads = std::thread::hardware_concurrency();
+    auto& renderables = testBatch.meshCombineGroup.renderables;
+    int total = renderables.size();
+    int maxThreads = std::min(hardwareThreads, total);
+    int chunkSize = (total + maxThreads - 1) / maxThreads;
 
-    std::vector<std::future<std::vector<std::function<void()>>>> futures;
+    struct CameraAdjustment {
+        glm::vec3 normal;
+        float depth;
+    };
 
-    for (int i = 0; i < threadCount; ++i) {
+    std::vector<std::future<std::vector<CameraAdjustment>>> futures;
+
+    for (int i = 0; i < maxThreads; ++i) {
         int start = i * chunkSize;
-        int end = (i == threadCount - 1) ? testBatch.meshCombineGroup.renderables.size() : start + chunkSize;
+        int end = std::min(start + chunkSize, total);
 
-        futures.push_back(std::async(std::launch::async, [&, start, end]() {
-            std::vector<std::function<void()>> results;
+        futures.push_back(std::async(std::launch::async, [start, end, &renderables]() {
+            std::vector<CameraAdjustment> adjustments;
 
             for (int j = start; j < end; ++j) {
-                auto* r = testBatch.meshCombineGroup.renderables[j];
-                
-                anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
-                if (col.collided) {
-                    glm::vec3 adjustedNormal = col.normal;
-                    if (glm::dot(adjustedNormal, r->position - anopol::camera::camera.cameraPosition) > 0)
-                        adjustedNormal = -adjustedNormal;
-
-                    results.push_back([=]() {
-                        anopol::camera::camera.cameraPosition += adjustedNormal * col.depth;
-                        anopol::camera::camera.updateLookAt();
-                    });
-                }
-
-                auto intersection = anopol::camera::Raycast({anopol::camera::camera.cameraPosition, anopol::camera::camera.mouseRay}, r);
-                if (intersection.has_value()) {
-                    results.push_back([=]() {
-                        intersection->target->color = glm::vec3(1.0f);
-                    });
+                auto* r = renderables[j];
+                                
+                if (glm::distance(r->position, anopol::camera::camera.cameraPosition) < 10) {
+                    auto col = anopol::collision::GJKCollisionWithCamera(r);
+                    if (col.collided) {
+                        glm::vec3 adjustedNormal = col.normal;
+                        if (glm::dot(adjustedNormal, r->position - anopol::camera::camera.cameraPosition) > 0)
+                            adjustedNormal = -adjustedNormal;
+                        adjustments.push_back({adjustedNormal, col.depth});
+                    }
                 }
             }
 
-            return results;
+            return adjustments;
         }));
     }
 
-    // Collect and apply changes on main thread
+    // Apply on main thread
     for (auto& fut : futures) {
-        for (auto& fn : fut.get()) {
-            fn();
+        for (const auto& adj : fut.get()) {
+            anopol::camera::camera.cameraPosition += adj.normal * adj.depth;
         }
     }
+    anopol::camera::camera.updateLookAt();
     
     uniformBufferMemory.Update(currentFrame);
     

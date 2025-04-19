@@ -22,6 +22,7 @@ public:
     
     static Renderable* Create();
     std::vector<float> GetColliderVertices(bool withNormals);
+    float ComputeBoundingSphereRadius();
 };
 
 Renderable* Renderable::Create() {
@@ -94,8 +95,8 @@ Renderable* Renderable::Create() {
     */
     
     renderable->isIndexed = false;
-    renderable->vertexBuffer = VertexBuffer();
-    renderable->vertexBuffer.alloc(renderable->vertices);
+    //renderable->vertexBuffer = VertexBuffer();
+    //renderable->vertexBuffer.alloc(renderable->vertices);
     
     return renderable;
 }
@@ -121,6 +122,26 @@ std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
     }
     return projectedVertices;
 }
+
+float Renderable::ComputeBoundingSphereRadius() {
+    std::vector<float> colliderVertices = GetColliderVertices();
+    float radius = 0;
+    
+    glm::vec3 max = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
+    glm::vec3 min = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
+    
+    for (int i = 0; i < colliderVertices.size()/3; i++) {
+        glm::vec3 vertex = glm::vec3(colliderVertices[i*3], colliderVertices[i*3+1], colliderVertices[i*3+2]);
+        min = glm::min(min, vertex);
+        max = glm::max(max, vertex);
+    }
+    
+    glm::vec3 center = (min + max) / 2.0f;
+    radius = glm::distance(center, max);
+    
+    return radius;
+}
+
 
 }
 

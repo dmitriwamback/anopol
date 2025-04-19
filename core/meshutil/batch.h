@@ -15,7 +15,7 @@ public:
     std::vector<anopol::render::Vertex> batchVertices;
     std::vector<uint32_t> batchIndices;
     std::vector<batchDrawInformation> drawInformation;
-    std::vector<glm::mat4> transforms;
+    std::vector<batchIndirectTransformation> transformations;
     
     anopol::render::VertexBuffer vertexBuffer;
     anopol::render::IndexBuffer indexBuffer;
@@ -30,9 +30,9 @@ public:
     void Append(std::vector<anopol::render::Renderable*> renderables);
     void Append(std::vector<anopol::render::Asset*> assets);
     void Dealloc();
+    void Combine();
     
 private:
-    void Combine();
 };
 
 Batch Batch::Create() {
@@ -49,22 +49,18 @@ Batch Batch::Create() {
 
 void Batch::Append(anopol::render::Renderable* renderable) {
     meshCombineGroup.Append(renderable);
-    Combine();
 }
 
 void Batch::Append(anopol::render::Asset* asset) {
     meshCombineGroup.Append(asset);
-    Combine();
 }
 
 void Batch::Append(std::vector<anopol::render::Renderable*> renderables) {
     meshCombineGroup.Append(renderables);
-    Combine();
 }
 
 void Batch::Append(std::vector<anopol::render::Asset*> assets) {
     meshCombineGroup.Append(assets);
-    Combine();
 }
 
 void Batch::Combine() {
@@ -72,7 +68,7 @@ void Batch::Combine() {
     drawInformation.clear();
     batchVertices.clear();
     batchIndices.clear();
-    transforms.clear();
+    transformations.clear();
     
     uint32_t vertexOffset = 0, indexOffset = 0, object = 0;
     
@@ -80,7 +76,7 @@ void Batch::Combine() {
         
         batchDrawInformation drawInfo;
         
-        transforms.push_back(modelMatrix(renderable->position, renderable->scale, renderable->rotation));
+        transformations.push_back({modelMatrix(renderable->position, renderable->scale, renderable->rotation), 0});
         
         if (renderable->isIndexed == false) {
             drawInfo.drawType = nonIndexed;

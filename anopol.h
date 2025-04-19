@@ -112,6 +112,9 @@ void initialize() {
     
     anopol::pipeline::Pipeline pipeline = anopol::pipeline::Pipeline::CreatePipeline("/Users/dmitriwamback/Documents/Projects/anopol/anopol/shaders/main");
     
+    double previousTime = glfwGetTime();
+    int frameCount = 0;
+    
     while (!glfwWindowShouldClose(context->window)) {
         pipeline.currentFrame = (pipeline.currentFrame + 1) % anopol_max_frames;
         
@@ -127,6 +130,17 @@ void initialize() {
         glfwPollEvents();
         pipeline.Bind("test");
         
+        double currentTime = glfwGetTime();
+        frameCount++;
+        
+        if (currentTime - previousTime >= 1.0) {
+
+            glfwSetWindowTitle(context->window, ("Anopol FPS: " + std::to_string(frameCount)).c_str());
+
+            frameCount = 0;
+            previousTime = currentTime;
+        }
+                
         debugTime += 0.1f;
     }
     
