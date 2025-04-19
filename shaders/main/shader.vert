@@ -15,6 +15,11 @@ struct instanceProperties {
     vec4 color;
 };
 
+struct batchingTransformation {
+    mat4 model;
+    vec4 color;
+};
+
 layout (push_constant, std430) uniform PushConstant {
     anopolStandardPushConstants object;
 } pushConstants;
@@ -33,7 +38,7 @@ layout (std140, binding = 2) uniform anopolStandardUniform {
 } ubo;
 
 layout(std140, binding = 3) readonly buffer BatchingTransformation {
-    mat4 modelMatrix[];
+    batchingTransformation batch[];
 };
 
 layout (location = 0) in vec3 inVertex;
@@ -63,10 +68,15 @@ void main() {
     }
 
     if (pushConstants.object.batched == 1 && pushConstants.object.instanced == 0) {
-        gl_Position = ubo.projection * ubo.lookAt * modelMatrix[gl_InstanceIndex] * vec4(inVertex, 1.0);
-        normal  = normalize(transpose(inverse(mat3(modelMatrix[gl_InstanceIndex]))) * inNormal);
-        fragp   = (modelMatrix[gl_InstanceIndex] * vec4(inVertex, 1.0)).xyz;
-        frag    = vec3(1.0);
+
+        batchingTransformation currentBatch = batch[gl_InstanceIndex];
+        mat4 model = currentBatch.model;
+        vec3 color = currentBatch.color.rgb;
+
+        gl_Position = ubo.projection * ubo.lookAt * model * vec4(inVertex, 1.0);
+        normal  = normalize(transpose(inverse(mat3(model))) * inNormal);
+        fragp   = (model * vec4(inVertex, 1.0)).xyz;
+        frag    = color;
         return;
     }
 

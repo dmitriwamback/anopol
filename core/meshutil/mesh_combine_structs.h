@@ -32,7 +32,7 @@ typedef struct batchDrawInformation {
 
 typedef struct batchIndirectTransformation {
     glm::mat4 model;
-    int instanceID;
+    glm::vec4 color;
 };
 
 }

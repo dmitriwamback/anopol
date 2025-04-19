@@ -15,7 +15,7 @@ public:
     std::vector<anopol::render::Vertex> batchVertices;
     std::vector<uint32_t> batchIndices;
     std::vector<batchDrawInformation> drawInformation;
-    std::vector<glm::mat4> transformations;
+    std::vector<batchIndirectTransformation> transformations;
     
     anopol::render::VertexBuffer vertexBuffer;
     anopol::render::IndexBuffer indexBuffer;
@@ -31,8 +31,9 @@ public:
     void Append(std::vector<anopol::render::Asset*> assets);
     void Dealloc();
     void Combine();
-    
 private:
+    
+    bool isAllocated;
 };
 
 Batch Batch::Create() {
@@ -76,7 +77,10 @@ void Batch::Combine() {
         
         batchDrawInformation drawInfo;
         
-        transformations.push_back(modelMatrix(renderable->position, renderable->scale, renderable->rotation));
+        transformations.push_back({
+            modelMatrix(renderable->position, renderable->scale, renderable->rotation),
+            glm::vec4(renderable->color, 1.0f)
+        });
         
         if (renderable->isIndexed == false) {
             drawInfo.drawType = nonIndexed;
@@ -126,7 +130,7 @@ void Batch::Combine() {
         if (batchIndices.size() > 0) indexBuffer.alloc(batchIndices);
         
         std::vector<VkDrawIndirectCommand> drawCommands;
-        
+
         for (anopol::batch::batchDrawInformation drawInfo : drawInformation) {
             
             VkDrawIndirectCommand command{};
@@ -188,7 +192,7 @@ void Batch::Combine() {
     // Allocating transformations
     //------------------------------------------------------------------------------------------//
     {
-        VkDeviceSize bufferSize = sizeof(glm::mat4) * transformations.size();
+        VkDeviceSize bufferSize = sizeof(batchIndirectTransformation) * transformations.size();
         
         anopol::ll::createBuffer(bufferSize,
                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -206,14 +210,14 @@ void Batch::Combine() {
                                  stagingBufferMemory);
         
         void* data;
-        vkMapMemory(context->device, stagingBufferMemory, 0, sizeof(glm::mat4) * transformations.size(), 0, &data);
-        memcpy(data, transformations.data(), sizeof(glm::mat4) * transformations.size());
+        vkMapMemory(context->device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, transformations.data(), bufferSize);
         vkUnmapMemory(context->device, stagingBufferMemory);
         
         VkCommandBuffer commandBuffer = anopol::ll::beginSingleCommandBuffer();
 
         VkBufferCopy copyRegion{};
-        copyRegion.size = sizeof(glm::mat4) * transformations.size();
+        copyRegion.size = bufferSize;
         vkCmdCopyBuffer(commandBuffer, stagingBuffer, transformBuffer, 1, &copyRegion);
 
         anopol::ll::endSingleCommandBuffer(commandBuffer);

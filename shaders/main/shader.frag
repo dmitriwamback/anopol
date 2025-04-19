@@ -17,6 +17,7 @@ struct anopolStandardPushConstants {
     vec4 color;
     mat4 model;
     int instanced;
+    int batched;
 };
 layout (push_constant) uniform PushConstant {
     anopolStandardPushConstants object;
@@ -24,12 +25,17 @@ layout (push_constant) uniform PushConstant {
 
 
 vec3 lightPosition = vec3(10000.0, 10000.0, 10000.0);
-vec3 lightColor = vec3(0.0, 1.0, 0.0);
+vec3 lightColor = vec3(243, 165, 90)/255.0;
 vec3 color = vec3(1.0);
 
 void main() {
 
-    if (pushConstants.object.instanced == 1) { color = frag; }
+    if (pushConstants.object.instanced == 1 && pushConstants.object.batched == 0) { 
+        color = frag; 
+    }
+    else if (pushConstants.object.instanced == 0 && pushConstants.object.batched == 1) {
+        color = frag;
+    }
     else {
         color = pushConstants.object.color.rgb;
     }

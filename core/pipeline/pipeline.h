@@ -223,15 +223,15 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
-    int length = 180;
+    int length = 200;
     
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
-            renderable->scale    = glm::vec3(10.f, 10.f, 10.f);
+            renderable->scale    = glm::vec3(10.f, 10.f, 5.f);
             renderable->rotation = glm::vec3(rand()%360);
-            renderable->color    = glm::vec3(1.0, 0.0, 0.0);
+            renderable->color    = glm::vec3(rand()%255/255.0f);
             testBatch.Append(renderable);
         }
     }
@@ -409,7 +409,7 @@ void Pipeline::InitializePipeline() {
         VkDescriptorBufferInfo transformDescriptorBufferInfo{};
         transformDescriptorBufferInfo.buffer = testBatch.transformBuffer;
         transformDescriptorBufferInfo.offset = 0;
-        transformDescriptorBufferInfo.range  = sizeof(glm::mat4) * testBatch.drawInformation.size();
+        transformDescriptorBufferInfo.range  = sizeof(anopol::batch::batchIndirectTransformation) * testBatch.drawInformation.size();
         
         std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
         
@@ -782,7 +782,7 @@ void Pipeline::Bind(std::string name) {
         
     //}
     
-    vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.drawInformation.size()), sizeof(VkDrawIndirectCommand));
+    vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
     
     
     //------------------------------------------------------------------------------------------//
