@@ -24,7 +24,7 @@ public:
         -0.5f, -0.5f, -0.5f,
     };
     
-    glm::vec3 cameraPosition, lookDirection;
+    glm::vec3 cameraPosition, lookDirection, mouseRay;
     glm::mat4 cameraProjection, cameraLookAt;
     
     float pitch;
@@ -92,8 +92,6 @@ void Camera::update(glm::vec4 movement) {
         cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
         camera.cameraProjection[1][1] *= -1;
     }
-    
-    std::cout << camera.cameraPosition.x << " " << camera.cameraPosition.y << " " << camera.cameraPosition.z << "\n";
 }
 
 void Camera::updateLookAt() {
@@ -125,6 +123,29 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
                                                 ));
         }
     }
+    
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+    
+    float x = 2.0f * camera.lastMouseX / (float)width - 1.0f;
+    float y = 1.0f - (2.0f * camera.lastMouseY) / (float)height;
+        
+    glm::vec3 nearPlane = glm::vec3(x, y, 0.0f);
+    glm::vec3 farPlane = glm::vec3(x, y, 1.0f);
+    
+    glm::mat4 newProjection = camera.cameraProjection;
+    newProjection[1][1] *= -1;
+    
+    glm::mat4 inverseProjection = glm::inverse(newProjection);
+    
+    glm::vec4 nearWorld = inverseProjection * glm::vec4(nearPlane, 1.0f);
+    glm::vec4 farWorld = inverseProjection * glm::vec4(farPlane, 1.0f);
+    nearWorld /= nearWorld.w;
+    farWorld /= farWorld.w;
+    
+    glm::vec3 rayDirection = glm::normalize(glm::vec3(farWorld) - glm::vec3(nearWorld));
+    camera.mouseRay = glm::normalize(glm::vec3(glm::inverse(camera.cameraLookAt) * glm::vec4(rayDirection, 0.0f)));
+    
     camera.lastMouseX = xpos;
     camera.lastMouseY = ypos;
 }

@@ -13,6 +13,10 @@ namespace anopol::render::texture {
 class Texture {
 public:
     static Texture LoadTexture(const char* path);
+    
+private:
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
 };
 
 
@@ -71,7 +75,7 @@ Texture Texture::LoadTexture(const char* path) {
         anopol_assert("Failed to create texture image view");
     }
     
-    
+    texture.textureImage = textureImage;
     
     return texture;
 }

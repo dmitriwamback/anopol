@@ -18,7 +18,7 @@ public:
     IndexBuffer  indexBuffer;
     bool isIndexed;
     
-    glm::vec3 position, rotation, scale;
+    glm::vec3 position, rotation, scale, color;
     
     static Renderable* Create();
     std::vector<float> GetColliderVertices(bool withNormals);
@@ -81,26 +81,17 @@ Renderable* Renderable::Create() {
             {{-0.5f, -0.5f,  0.5f}, { 0, -1,  0}, {0, 1}},
             {{-0.5f, -0.5f, -0.5f}, { 0, -1,  0}, {0, 0}},
     };
-
+    
+    /*
     renderable->indices = {
-        // Front face
-                0, 2, 1, 0, 3, 2,  // Reversed (CW)
-
-                // Back face
-                5, 7, 4, 5, 6, 7,  // Reversed (CW)
-
-                // Left face
-                4, 3, 0, 4, 7, 3,  // Reversed (CW)
-
-                // Right face
-                1, 6, 5, 1, 2, 6,  // Reversed (CW)
-
-                // Top face
-                4, 1, 5, 4, 0, 1,  // Reversed (CW)
-
-                // Bottom face
-                3, 6, 2, 3, 7, 6   // Reversed (CW)
+        0, 2, 1, 0, 3, 2,
+        5, 7, 4, 5, 6, 7,
+        4, 3, 0, 4, 7, 3,
+        1, 6, 5, 1, 2, 6,
+        4, 1, 5, 4, 0, 1,
+        3, 6, 2, 3, 7, 6
     };
+    */
     
     renderable->isIndexed = false;
     renderable->vertexBuffer = VertexBuffer();

@@ -16,9 +16,6 @@ static anopol::anopolContext* context;
 #include "ll/mem.h"
 #include "ll/internal.h"
 
-#include "core/camera/frustum.h"
-#include "core/camera/camera.h"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "core/render/texture/stb_image.h"
 #include "core/render/texture/material.h"
@@ -27,7 +24,8 @@ static anopol::anopolContext* context;
 #include "core/structs/shadow.h"
 
 #include "core/render/vertex.h"
-#include "core/render/buffer/uniform_buffer.h"
+
+#include "core/camera/frustum.h"
 #include "core/render/buffer/vertex_buffer.h"
 #include "core/render/buffer/index_buffer.h"
 #include "core/render/buffer/instance_buffer.h"
@@ -35,6 +33,10 @@ static anopol::anopolContext* context;
 
 #include "core/render/renderable.h"
 #include "core/render/asset.h"
+
+#include "core/camera/ray.h"
+#include "core/camera/camera.h"
+#include "core/render/buffer/uniform_buffer.h"
 
 #include "core/meshutil/mesh_combine_structs.h"
 #include "core/meshutil/mesh_combine.h"
@@ -45,6 +47,8 @@ static anopol::anopolContext* context;
 #include "core/gjkepa/simplex.h"
 #include "core/gjkepa/expanding_polytope_algorithm.h"
 #include "core/gjkepa/gilbert_johnson_keerthi.h"
+
+#include "core/pipeline/collision_ray_thread.h"
 
 #include "core/pipeline/pipeline.h"
 #include "core/pipeline/scene.h"

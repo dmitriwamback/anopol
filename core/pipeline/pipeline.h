@@ -8,6 +8,8 @@
 #ifndef pipeline_h
 #define pipeline_h
 
+#include <future>
+
 namespace anopol::pipeline {
 
 class Pipeline {
@@ -216,13 +218,13 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
-    for (int i = 0; i < 20; i++) {
-        for (int j = 0; j < 20; j++) {
+    for (int i = 0; i < 40; i++) {
+        for (int j = 0; j < 40; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
-            renderable->position = glm::vec3((i) * 15.f, 0, (j) * 15.f);
+            renderable->position = glm::vec3((i - 20) * 15.f, 0, (j - 20) * 15.f);
             renderable->scale    = glm::vec3(10.f, 10.f, 10.f);
-            renderable->rotation = glm::vec3(70.0f, 0.0f, 0.0f);
-            debugRenderables.push_back(renderable);
+            renderable->rotation = glm::vec3(rand()%360);
+            renderable->color    = glm::vec3(1.0, 0.0, 0.0);
             testBatch.Append(renderable);
         }
     }
@@ -236,7 +238,7 @@ void Pipeline::InitializePipeline() {
             
             float y = floor(math::noise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 1039.3f) * 10.0f);
                         
-            testAsset->PushInstance(glm::vec3(x, -50.0f + y, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(1.0f, 1.0f, 0.8f));
+            testAsset->PushInstance(glm::vec3(x, -50.0f + y, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(1.0f, 0.8f, 0.7f));
         }
     }
     testAsset->AllocInstances();
@@ -252,12 +254,14 @@ void Pipeline::InitializePipeline() {
     instanceBuffer->alloc(1000000);
     instanceBuffer->appendInstance(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f));
     
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     
     poolSizes[0].type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount        = (uint32_t)anopol_max_frames;
     poolSizes[1].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount        = (uint32_t)anopol_max_frames;
+    poolSizes[2].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].descriptorCount        = (uint32_t)anopol_max_frames;
     
     VkDescriptorPoolCreateInfo poolCreateInfo{};
     poolCreateInfo.sType            = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -356,11 +360,17 @@ void Pipeline::InitializePipeline() {
     instanceBufferBinding.descriptorCount       = 1;
     instanceBufferBinding.stageFlags            = VK_SHADER_STAGE_VERTEX_BIT;
     
-    VkDescriptorSetLayoutBinding bindings[] = {uniformBufferLayoutBinding, instanceBufferBinding};
+    VkDescriptorSetLayoutBinding batchingBinding{};
+    batchingBinding.binding                     = 3;
+    batchingBinding.descriptorType              = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    batchingBinding.descriptorCount             = 1;
+    batchingBinding.stageFlags                  = VK_SHADER_STAGE_VERTEX_BIT;
+    
+    VkDescriptorSetLayoutBinding bindings[] = {uniformBufferLayoutBinding, instanceBufferBinding, batchingBinding};
     
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 2;
+    layoutInfo.bindingCount = 3;
     layoutInfo.pBindings    = bindings;
     
     if (vkCreateDescriptorSetLayout(context->device, &layoutInfo, nullptr, &anopolDescriptor) != VK_SUCCESS) anopol_assert("Failed to create descriptor");
@@ -629,19 +639,49 @@ void Pipeline::Bind(std::string name) {
     //------------------------------------------------------------------------------------------//
     // Camera-Renderable Collision
     //------------------------------------------------------------------------------------------//
-    for (anopol::render::Renderable* r : debugRenderables) {
-        anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
-        if (col.collided) {
-            
-            if (glm::dot(col.normal, r->position - anopol::camera::camera.cameraPosition) > 0) {
-                col.normal = -col.normal;
+    int threadCount = std::thread::hardware_concurrency();
+    int chunkSize = testBatch.meshCombineGroup.renderables.size() / threadCount;
+
+    std::vector<std::future<std::vector<std::function<void()>>>> futures;
+
+    for (int i = 0; i < threadCount; ++i) {
+        int start = i * chunkSize;
+        int end = (i == threadCount - 1) ? testBatch.meshCombineGroup.renderables.size() : start + chunkSize;
+
+        futures.push_back(std::async(std::launch::async, [&, start, end]() {
+            std::vector<std::function<void()>> results;
+
+            for (int j = start; j < end; ++j) {
+                auto* r = testBatch.meshCombineGroup.renderables[j];
+                
+                anopol::collision::collision col = anopol::collision::GJKCollisionWithCamera(r);
+                if (col.collided) {
+                    glm::vec3 adjustedNormal = col.normal;
+                    if (glm::dot(adjustedNormal, r->position - anopol::camera::camera.cameraPosition) > 0)
+                        adjustedNormal = -adjustedNormal;
+
+                    results.push_back([=]() {
+                        anopol::camera::camera.cameraPosition += adjustedNormal * col.depth;
+                        anopol::camera::camera.updateLookAt();
+                    });
+                }
+
+                auto intersection = anopol::camera::Raycast({anopol::camera::camera.cameraPosition, anopol::camera::camera.mouseRay}, r);
+                if (intersection.has_value()) {
+                    results.push_back([=]() {
+                        intersection->target->color = glm::vec3(1.0f);
+                    });
+                }
             }
-            
-            std::cout << "collision" << iteration << '\n';
-            
-            std::cout << col.depth << '\n';
-            anopol::camera::camera.cameraPosition += col.normal*col.depth;
-            anopol::camera::camera.updateLookAt();
+
+            return results;
+        }));
+    }
+
+    // Collect and apply changes on main thread
+    for (auto& fut : futures) {
+        for (auto& fn : fut.get()) {
+            fn();
         }
     }
     
@@ -652,10 +692,8 @@ void Pipeline::Bind(std::string name) {
     // Rendering objects (Renderables)
     //------------------------------------------------------------------------------------------//
     
-    for (anopol::render::Renderable* r : debugRenderables) {
-                
-        VkDeviceSize offsets[] = {0};
-        
+    //for (anopol::render::Renderable* r : debugRenderables) {
+                        
         //------------------------------------------------------------------------------------------//
         // Push Constants
         //------------------------------------------------------------------------------------------//
@@ -694,42 +732,40 @@ void Pipeline::Bind(std::string name) {
         }
          */
         
-        iteration++;
-    }
+        //iteration++;
+    //}
     
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
-    //vkCmdBindIndexBuffer(cmdBuf, testBatch.vertexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    //vkCmdBindIndexBuffer(commandBuffers[currentFrame], testBatch.vertexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     
-    for (anopol::batch::batchDrawInformation drawInfo : testBatch.drawInformation) {
+    //for (anopol::batch::batchDrawInformation drawInfo : testBatch.drawInformation) {
         
-        anopol::render::anopolStandardPushConstants standardPushConstants{};
-        standardPushConstants.scale             = glm::vec4(testBatch.meshCombineGroup.renderables[drawInfo.object]->scale, 1.0f);
-        standardPushConstants.position          = glm::vec4(testBatch.meshCombineGroup.renderables[drawInfo.object]->position, 1.0f);
-        standardPushConstants.rotation          = glm::vec4(testBatch.meshCombineGroup.renderables[drawInfo.object]->rotation, 1.0f);
+    anopol::render::anopolStandardPushConstants standardPushConstants{};
+    standardPushConstants.scale             = glm::vec4(testBatch.meshCombineGroup.renderables[0]->scale, 1.0f);
+    standardPushConstants.position          = glm::vec4(testBatch.meshCombineGroup.renderables[0]->position, 1.0f);
+    standardPushConstants.rotation          = glm::vec4(testBatch.meshCombineGroup.renderables[0]->rotation, 1.0f);
+    standardPushConstants.color             = glm::vec4(testBatch.meshCombineGroup.renderables[0]->color, 1.0f);
+    
+    standardPushConstants.instanced = false;
+    standardPushConstants.batched = false;
+    
+    glm::mat4 model = modelMatrix(standardPushConstants.position,
+                                  standardPushConstants.scale,
+                                  standardPushConstants.rotation);
+    
+    standardPushConstants.model = model;
+    
+    vkCmdPushConstants(commandBuffers[currentFrame],
+                       anopolMainPipeline->pipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0,
+                       sizeof(anopol::render::anopolStandardPushConstants),
+                       &standardPushConstants);
         
-        standardPushConstants.instanced         = false;
-        
-        glm::mat4 model = modelMatrix(standardPushConstants.position,
-                                      standardPushConstants.scale,
-                                      standardPushConstants.rotation);
-        
-        standardPushConstants.model = model;
-        
-        vkCmdPushConstants(commandBuffers[currentFrame],
-                           anopolMainPipeline->pipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           0,
-                           sizeof(anopol::render::anopolStandardPushConstants),
-                           &standardPushConstants);
-        
-        if (drawInfo.drawType == anopol::batch::indexed) {
-            vkCmdDrawIndexed(commandBuffers[currentFrame], drawInfo.indexCount, 1, drawInfo.firstIndex, drawInfo.vertexOffset, 0);
-        }
-        else {
-            vkCmdDraw(commandBuffers[currentFrame], drawInfo.vertexCount, 1, drawInfo.firstVertex, 0);
-        }
-    }
+    //}
+    
+    vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.drawInformation.size()), sizeof(VkDrawIndirectCommand));
     
     
     //------------------------------------------------------------------------------------------//
@@ -957,6 +993,8 @@ void Pipeline::CleanUp() {
     
     vkFreeCommandBuffers(context->device, ll::commandPool, anopol_max_frames, commandBuffers.data());
     
+    testBatch.Dealloc();
+    
     for (anopol::render::Renderable* renderable : debugRenderables) {
         renderable->vertexBuffer.dealloc();
         renderable->indexBuffer.dealloc();
@@ -969,13 +1007,6 @@ void Pipeline::CleanUp() {
         }
         if(asset->IsInstanced()) asset->GetInstances()->dealloc();
     }
-    
-    for (anopol::render::Renderable* renderable : testBatch.meshCombineGroup.renderables) {
-        renderable->vertexBuffer.dealloc();
-        renderable->indexBuffer.dealloc();
-    }
-    testBatch.vertexBuffer.dealloc();
-    testBatch.indexBuffer.dealloc();
     uniformBufferMemory.dealloc();
     
     vkDestroyDescriptorPool(context->device, anopolDescriptorSets->descriptorPool, nullptr);

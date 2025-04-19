@@ -422,6 +422,8 @@ void createDevice() {
     }
     
     VkPhysicalDeviceFeatures features{};
+    features.multiDrawIndirect = VK_TRUE;
+    
     VkDeviceCreateInfo deviceInfo{};
     
     deviceInfo.sType                    = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

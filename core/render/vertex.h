@@ -14,6 +14,7 @@ struct Vertex {
     glm::vec3 vertex;
     glm::vec3 normal;
     glm::vec2 uv;
+    uint32_t instanceID;
     
     static VkVertexInputBindingDescription getBindingDescription() {
         
