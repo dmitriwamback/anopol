@@ -15,14 +15,14 @@ public:
     std::vector<anopol::render::Vertex> batchVertices;
     std::vector<uint32_t> batchIndices;
     std::vector<batchDrawInformation> drawInformation;
-    std::vector<batchIndirectTransformation> transformations;
+    std::vector<glm::mat4> transformations;
     
     anopol::render::VertexBuffer vertexBuffer;
     anopol::render::IndexBuffer indexBuffer;
     MeshCombineGroup meshCombineGroup;
     
-    VkBuffer drawCommandBuffer;
-    VkDeviceMemory drawCommandBufferMemory;
+    VkBuffer drawCommandBuffer, transformBuffer;
+    VkDeviceMemory drawCommandBufferMemory, transformBufferMemory;
     
     static Batch Create();
     void Append(anopol::render::Renderable* renderable);
@@ -76,7 +76,7 @@ void Batch::Combine() {
         
         batchDrawInformation drawInfo;
         
-        transformations.push_back({modelMatrix(renderable->position, renderable->scale, renderable->rotation), 0});
+        transformations.push_back(modelMatrix(renderable->position, renderable->scale, renderable->rotation));
         
         if (renderable->isIndexed == false) {
             drawInfo.drawType = nonIndexed;
@@ -117,66 +117,110 @@ void Batch::Combine() {
     }
      */
     
-    vertexBuffer.alloc(batchVertices);
-    if (batchIndices.size() > 0) indexBuffer.alloc(batchIndices);
+    //------------------------------------------------------------------------------------------//
+    // Allocating Vertex Buffer
+    //------------------------------------------------------------------------------------------//
     
-    std::vector<VkDrawIndirectCommand> drawCommands;
-    
-    for (anopol::batch::batchDrawInformation drawInfo : drawInformation) {
+    {
+        vertexBuffer.alloc(batchVertices);
+        if (batchIndices.size() > 0) indexBuffer.alloc(batchIndices);
         
-        VkDrawIndirectCommand command{};
-        command.vertexCount = drawInfo.vertexCount;
-        command.instanceCount = 1;
-        command.firstVertex = drawInfo.firstVertex;
-        command.firstInstance = 0;
+        std::vector<VkDrawIndirectCommand> drawCommands;
         
-        drawCommands.push_back(command);
+        for (anopol::batch::batchDrawInformation drawInfo : drawInformation) {
+            
+            VkDrawIndirectCommand command{};
+            command.vertexCount = drawInfo.vertexCount;
+            command.instanceCount = 1;
+            command.firstVertex = drawInfo.firstVertex;
+            command.firstInstance = drawInfo.object;
+            
+            drawCommands.push_back(command);
+        }
+        
+        VkDeviceSize bufferSize = sizeof(VkDrawIndirectCommand) * drawCommands.size();
+        
+        VkBufferCreateInfo bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = bufferSize;
+        bufferInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        
+        vkCreateBuffer(context->device, &bufferInfo, nullptr, &drawCommandBuffer);
+        
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(context->device, drawCommandBuffer, &memRequirements);
+        
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = anopol::ll::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        
+        vkAllocateMemory(context->device, &allocInfo, nullptr, &drawCommandBufferMemory);
+        vkBindBufferMemory(context->device, drawCommandBuffer, drawCommandBufferMemory, 0);
+        
+        VkBuffer staging;
+        VkDeviceMemory stagingMemory;
+        
+        anopol::ll::createBuffer(bufferSize,
+                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                 staging, stagingMemory);
+        
+        void* data;
+        vkMapMemory(context->device, stagingMemory, 0, bufferSize, 0, &data);
+        memcpy(data, drawCommands.data(), (size_t) bufferSize);
+        vkUnmapMemory(context->device, stagingMemory);
+        
+        VkCommandBuffer commandBuffer = anopol::ll::beginSingleCommandBuffer();
+        
+        VkBufferCopy copyRegion{};
+        copyRegion.size = bufferSize;
+        vkCmdCopyBuffer(commandBuffer, staging, drawCommandBuffer, 1, &copyRegion);
+        
+        anopol::ll::endSingleCommandBuffer(commandBuffer);
+        
+        vkDestroyBuffer(context->device, staging, nullptr);
+        vkFreeMemory(context->device, stagingMemory, nullptr);
     }
     
-    VkDeviceSize bufferSize = sizeof(VkDrawIndirectCommand) * drawCommands.size();
+    //------------------------------------------------------------------------------------------//
+    // Allocating transformations
+    //------------------------------------------------------------------------------------------//
+    {
+        VkDeviceSize bufferSize = sizeof(glm::mat4) * transformations.size();
+        
+        anopol::ll::createBuffer(bufferSize,
+                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                 transformBuffer,
+                                 transformBufferMemory);
+        
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
 
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = bufferSize;
-    bufferInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        anopol::ll::createBuffer(bufferSize,
+                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                 stagingBuffer,
+                                 stagingBufferMemory);
+        
+        void* data;
+        vkMapMemory(context->device, stagingBufferMemory, 0, sizeof(glm::mat4) * transformations.size(), 0, &data);
+        memcpy(data, transformations.data(), sizeof(glm::mat4) * transformations.size());
+        vkUnmapMemory(context->device, stagingBufferMemory);
+        
+        VkCommandBuffer commandBuffer = anopol::ll::beginSingleCommandBuffer();
 
-    vkCreateBuffer(context->device, &bufferInfo, nullptr, &drawCommandBuffer);
-    
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(context->device, drawCommandBuffer, &memRequirements);
+        VkBufferCopy copyRegion{};
+        copyRegion.size = sizeof(glm::mat4) * transformations.size();
+        vkCmdCopyBuffer(commandBuffer, stagingBuffer, transformBuffer, 1, &copyRegion);
 
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = anopol::ll::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        anopol::ll::endSingleCommandBuffer(commandBuffer);
 
-    vkAllocateMemory(context->device, &allocInfo, nullptr, &drawCommandBufferMemory);
-    vkBindBufferMemory(context->device, drawCommandBuffer, drawCommandBufferMemory, 0);
-    
-    VkBuffer staging;
-    VkDeviceMemory stagingMemory;
-    
-    anopol::ll::createBuffer(bufferSize,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                             staging, stagingMemory);
-
-    void* data;
-    vkMapMemory(context->device, stagingMemory, 0, bufferSize, 0, &data);
-    memcpy(data, drawCommands.data(), (size_t) bufferSize);
-    vkUnmapMemory(context->device, stagingMemory);
-    
-    VkCommandBuffer commandBuffer = anopol::ll::beginSingleCommandBuffer();
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = bufferSize;
-    vkCmdCopyBuffer(commandBuffer, staging, drawCommandBuffer, 1, &copyRegion);
-
-    anopol::ll::endSingleCommandBuffer(commandBuffer);
-    
-    vkDestroyBuffer(context->device, staging, nullptr);
-    vkFreeMemory(context->device, stagingMemory, nullptr);
+        vkDestroyBuffer(context->device, stagingBuffer, nullptr);
+        vkFreeMemory(context->device, stagingBufferMemory, nullptr);
+    }
 }
 
 void Batch::Dealloc() {
@@ -195,6 +239,9 @@ void Batch::Dealloc() {
     
     vkDestroyBuffer(context->device, drawCommandBuffer, nullptr);
     vkFreeMemory(context->device, drawCommandBufferMemory, nullptr);
+    
+    vkDestroyBuffer(context->device, transformBuffer, nullptr);
+    vkFreeMemory(context->device, transformBufferMemory, nullptr);
 }
 
 }

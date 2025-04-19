@@ -23,6 +23,10 @@ public:
     static Renderable* Create();
     std::vector<float> GetColliderVertices(bool withNormals);
     float ComputeBoundingSphereRadius();
+    float boundingSphereRadius;
+private:
+    glm::vec3 lastPosition, lastRotation, lastScale;
+    bool computedBoundingSphere;
 };
 
 Renderable* Renderable::Create() {
@@ -32,6 +36,12 @@ Renderable* Renderable::Create() {
     renderable->scale    = glm::vec3(1.0f, 1.0f, 1.0f);
     renderable->rotation = glm::vec3(0.0f, 0.0f, 0.0f);
     renderable->position = glm::vec3(0.0f);
+    
+    renderable->lastScale    = renderable->scale;
+    renderable->lastRotation = renderable->rotation;
+    renderable->lastPosition = renderable->position;
+    
+    renderable->computedBoundingSphere = false;
     
     renderable->vertices = {
         // Front face
@@ -124,22 +134,33 @@ std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
 }
 
 float Renderable::ComputeBoundingSphereRadius() {
-    std::vector<float> colliderVertices = GetColliderVertices();
+    
     float radius = 0;
     
-    glm::vec3 max = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
-    glm::vec3 min = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
-    
-    for (int i = 0; i < colliderVertices.size()/3; i++) {
-        glm::vec3 vertex = glm::vec3(colliderVertices[i*3], colliderVertices[i*3+1], colliderVertices[i*3+2]);
-        min = glm::min(min, vertex);
-        max = glm::max(max, vertex);
+    if (lastPosition != position || lastScale != scale || lastRotation != rotation || !computedBoundingSphere) {
+        
+        std::vector<float> colliderVertices = GetColliderVertices();
+        glm::vec3 max = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
+        glm::vec3 min = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
+        
+        for (int i = 0; i < colliderVertices.size()/3; i++) {
+            glm::vec3 vertex = glm::vec3(colliderVertices[i*3], colliderVertices[i*3+1], colliderVertices[i*3+2]);
+            min = glm::min(min, vertex);
+            max = glm::max(max, vertex);
+        }
+        
+        glm::vec3 center = (min + max) / 2.0f;
+        radius = glm::distance(center, max);
+        
+        boundingSphereRadius = radius;
+        computedBoundingSphere = true;
+        
+        lastPosition = position;
+        lastScale    = scale;
+        lastRotation = rotation;
     }
     
-    glm::vec3 center = (min + max) / 2.0f;
-    radius = glm::distance(center, max);
-    
-    return radius;
+    return boundingSphereRadius;
 }
 
 

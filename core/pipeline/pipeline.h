@@ -45,6 +45,11 @@ public:
         std::vector<VkDescriptorSet> descriptorSets;
     };
     
+    struct CameraAdjustment {
+        glm::vec3 normal;
+        float depth;
+    };
+    
     //------------------------------------------------------------------------------------------//
     // Shadows
     //------------------------------------------------------------------------------------------//
@@ -218,10 +223,12 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
-    for (int i = 0; i < 180; i++) {
-        for (int j = 0; j < 180; j++) {
+    int length = 180;
+    
+    for (int i = 0; i < length; i++) {
+        for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
-            renderable->position = glm::vec3((i - 20) * 15.f, 0, (j - 20) * 15.f);
+            renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
             renderable->scale    = glm::vec3(10.f, 10.f, 10.f);
             renderable->rotation = glm::vec3(rand()%360);
             renderable->color    = glm::vec3(1.0, 0.0, 0.0);
@@ -399,7 +406,12 @@ void Pipeline::InitializePipeline() {
         instanceDescriptorBufferInfo.offset = 0;
         instanceDescriptorBufferInfo.range  = sizeof(anopol::render::InstanceBuffer);
         
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        VkDescriptorBufferInfo transformDescriptorBufferInfo{};
+        transformDescriptorBufferInfo.buffer = testBatch.transformBuffer;
+        transformDescriptorBufferInfo.offset = 0;
+        transformDescriptorBufferInfo.range  = sizeof(glm::mat4) * testBatch.drawInformation.size();
+        
+        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
         
         descriptorWrites[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet          = anopolDescriptorSets->descriptorSets[i];
@@ -415,7 +427,14 @@ void Pipeline::InitializePipeline() {
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pBufferInfo     = &instanceDescriptorBufferInfo;
         
-        vkUpdateDescriptorSets(context->device, 2, descriptorWrites.data(), 0, nullptr);
+        descriptorWrites[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet          = anopolDescriptorSets->descriptorSets[i];
+        descriptorWrites[2].dstBinding      = 3;
+        descriptorWrites[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo     = &transformDescriptorBufferInfo;
+        
+        vkUpdateDescriptorSets(context->device, 3, descriptorWrites.data(), 0, nullptr);
     }
     
     //------------------------------------------------------------------------------------------//
@@ -646,11 +665,6 @@ void Pipeline::Bind(std::string name) {
     int maxThreads = std::min(hardwareThreads, total);
     int chunkSize = (total + maxThreads - 1) / maxThreads;
 
-    struct CameraAdjustment {
-        glm::vec3 normal;
-        float depth;
-    };
-
     std::vector<std::future<std::vector<CameraAdjustment>>> futures;
 
     for (int i = 0; i < maxThreads; ++i) {
@@ -659,26 +673,28 @@ void Pipeline::Bind(std::string name) {
 
         futures.push_back(std::async(std::launch::async, [start, end, &renderables]() {
             std::vector<CameraAdjustment> adjustments;
+            
+            int iteration = 0;
 
             for (int j = start; j < end; ++j) {
                 auto* r = renderables[j];
-                                
-                if (glm::distance(r->position, anopol::camera::camera.cameraPosition) < 10) {
+                                                
+                if (glm::distance(r->position, anopol::camera::camera.cameraPosition) < r->ComputeBoundingSphereRadius()) {
                     auto col = anopol::collision::GJKCollisionWithCamera(r);
                     if (col.collided) {
-                        glm::vec3 adjustedNormal = col.normal;
-                        if (glm::dot(adjustedNormal, r->position - anopol::camera::camera.cameraPosition) > 0)
-                            adjustedNormal = -adjustedNormal;
-                        adjustments.push_back({adjustedNormal, col.depth});
+                        std::cout << "collison" << iteration << '\n';
+                        if (glm::dot(col.normal, r->position - anopol::camera::camera.cameraPosition) > 0) col.normal = -col.normal;
+                        
+                        adjustments.push_back({col.normal, col.depth});
                     }
                 }
+                iteration++;
             }
 
             return adjustments;
         }));
     }
 
-    // Apply on main thread
     for (auto& fut : futures) {
         for (const auto& adj : fut.get()) {
             anopol::camera::camera.cameraPosition += adj.normal * adj.depth;
@@ -749,7 +765,7 @@ void Pipeline::Bind(std::string name) {
     standardPushConstants.color             = glm::vec4(testBatch.meshCombineGroup.renderables[0]->color, 1.0f);
     
     standardPushConstants.instanced = false;
-    standardPushConstants.batched = false;
+    standardPushConstants.batched = true;
     
     glm::mat4 model = modelMatrix(standardPushConstants.position,
                                   standardPushConstants.scale,

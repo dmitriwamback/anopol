@@ -32,9 +32,9 @@ layout (std140, binding = 2) uniform anopolStandardUniform {
     float t;
 } ubo;
 
-layout(std140, binding = 3) buffer BatchingTransformation {
+layout(std140, binding = 3) readonly buffer BatchingTransformation {
     mat4 modelMatrix[];
-} transformationBuffer;
+};
 
 layout (location = 0) in vec3 inVertex;
 layout (location = 1) in vec3 inNormal;
@@ -55,7 +55,7 @@ void main() {
     uv      = UV;
     cameraPosition = ubo.cameraPosition;
     
-    if (pushConstants.object.instanced == 0) {
+    if (pushConstants.object.instanced == 0 && pushConstants.object.batched == 0) {
         gl_Position = ubo.projection * ubo.lookAt * pushConstants.object.model * vec4(inVertex, 1.0);
         normal  = normalize(transpose(inverse(mat3(pushConstants.object.model))) * inNormal);
         fragp   = (pushConstants.object.model * vec4(inVertex, 1.0)).xyz;
@@ -63,9 +63,9 @@ void main() {
     }
 
     if (pushConstants.object.batched == 1 && pushConstants.object.instanced == 0) {
-        gl_Position = ubo.projection * ubo.lookAt * transformationBuffer.modelMatrix[0] * vec4(inVertex, 1.0);
-        normal  = normalize(transpose(inverse(mat3(transformationBuffer.modelMatrix[0]))) * inNormal);
-        fragp   = (pushConstants.object.model * vec4(inVertex, 1.0)).xyz;
+        gl_Position = ubo.projection * ubo.lookAt * modelMatrix[gl_InstanceIndex] * vec4(inVertex, 1.0);
+        normal  = normalize(transpose(inverse(mat3(modelMatrix[gl_InstanceIndex]))) * inNormal);
+        fragp   = (modelMatrix[gl_InstanceIndex] * vec4(inVertex, 1.0)).xyz;
         frag    = vec3(1.0);
         return;
     }
