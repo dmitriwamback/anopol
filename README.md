@@ -6,6 +6,7 @@
   <li>Instanced rendering</li>
   <li>Uniform buffer + push constants</li>
   <li>Collision detection (Gilbert-Johnson-Keerthi (GJK) + Expanding Polytope Algorithm (EPA))</li>
+  <li>Combining meshes (batching)</li>
 </ul>
 <p>Future features:</p>
 <ul>
@@ -13,12 +14,11 @@
   <li>Texture sampling</li>
   <li>Off-screen rendering</li>
   <li>Approximate Convex Decomposition</li>
-  <li>Combining meshes (batching)</li>
 </ul>
 <p>Necessary libraries:</p>
 <ul>
   <li>Vulkan SDK - Core functionality for the Vulkan API</li>
-  <li>GLFW - Framework for rendering to the screen</li>
+  <li>GLFW - Framework for rendering to the screen (Graphics Library Framework)</li>
   <li>GLM - OpenGL Math library (Vectors, Matrices, etc.)</li>
   <li>Assimp - Model loader</li>
 </ul>
