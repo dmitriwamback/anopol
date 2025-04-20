@@ -165,13 +165,13 @@ collision GJKCollision(anopol::render::Renderable* a, anopol::render::Renderable
     return collisionInformation;
 }
 
-collision GJKCollisionWithCamera(anopol::render::Renderable* a) {
+collision GJKCollisionWithCamera(anopol::render::Renderable* a, glm::vec3 desiredPosition = glm::vec3(0.0f)) {
     
     collision collisionInformation{};
     collisionInformation.collided = false;
     
     std::vector<float> colliderVerticesA = a->GetColliderVertices();
-    std::vector<float> colliderVerticesB = anopol::camera::camera.GetColliderVertices();
+    std::vector<float> colliderVerticesB = anopol::camera::camera.GetColliderVertices(desiredPosition);
     
     glm::vec3 support = Support(colliderVerticesA, glm::vec3(1.0f, 0.0f, 0.0f)) - Support(colliderVerticesB, -glm::vec3(1.0f, 0.0f, 0.0f));
     
@@ -192,7 +192,7 @@ collision GJKCollisionWithCamera(anopol::render::Renderable* a) {
         simplex.pushFront(support);
 
         if (HandleSimplex(simplex, direction)) {
-            collisionInformation = EPA(simplex, a->GetColliderVertices(), anopol::camera::camera.GetColliderVertices());
+            collisionInformation = EPA(simplex, a->GetColliderVertices(), anopol::camera::camera.GetColliderVertices(desiredPosition));
             return collisionInformation;
         }
     }

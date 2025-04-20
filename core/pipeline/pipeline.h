@@ -229,7 +229,7 @@ void Pipeline::InitializePipeline() {
         for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
-            renderable->scale    = glm::vec3(10.f, 10.f, 5.f);
+            renderable->scale    = glm::vec3(10.f, 20.f, 10.f);
             renderable->rotation = glm::vec3(rand()%360);
             renderable->color    = glm::vec3(rand()%255/255.0f);
             testBatch.Append(renderable);
@@ -653,52 +653,67 @@ void Pipeline::Bind(std::string name) {
                             nullptr);
     vkCmdSetViewport(commandBuffers[currentFrame], 0, 1, &anopolMainPipeline->viewport);
     vkCmdSetScissor(commandBuffers[currentFrame], 0, 1, &anopolMainPipeline->scissor);
-    
-    int iteration = 0;
-    
+        
     //------------------------------------------------------------------------------------------//
     // Camera-Renderable Collision
     //------------------------------------------------------------------------------------------//
+    
     int hardwareThreads = std::thread::hardware_concurrency();
     auto& renderables = testBatch.meshCombineGroup.renderables;
     int total = renderables.size();
-    int maxThreads = std::min(hardwareThreads, total);
+    uint32_t maxThreads = std::min(hardwareThreads, total);
     int chunkSize = (total + maxThreads - 1) / maxThreads;
 
-    std::vector<std::future<std::vector<CameraAdjustment>>> futures;
+    glm::vec3 totalPush(0.0f);
+    const int maxIterations = 5;
 
-    for (int i = 0; i < maxThreads; ++i) {
-        int start = i * chunkSize;
-        int end = std::min(start + chunkSize, total);
+    for (int iter = 0; iter < maxIterations; ++iter) {
+        glm::vec3 accumulatedMTV(0.0f);
+        float totalDepth = 0.0f;
 
-        futures.push_back(std::async(std::launch::async, [start, end, &renderables]() {
-            std::vector<CameraAdjustment> adjustments;
-            
-            int iteration = 0;
+        std::vector<std::future<std::vector<CameraAdjustment>>> futures;
 
-            for (int j = start; j < end; ++j) {
-                auto* r = renderables[j];
-                                                
-                if (glm::distance(r->position, anopol::camera::camera.cameraPosition) < r->ComputeBoundingSphereRadius()) {
+        for (int i = 0; i < maxThreads; ++i) {
+            int start = i * chunkSize;
+            int end = std::min(start + chunkSize, total);
+
+            futures.push_back(std::async(std::launch::async, [start, end, &renderables]() {
+                std::vector<CameraAdjustment> adjustments;
+
+                for (int j = start; j < end; ++j) {
+                    auto* r = renderables[j];
+
+                    if (glm::distance(r->position, anopol::camera::camera.cameraPosition) > r->ComputeBoundingSphereRadius() + 2.0f) continue;
                     auto col = anopol::collision::GJKCollisionWithCamera(r);
-                    if (col.collided) {
-                        std::cout << "collison" << iteration << '\n';
-                        if (glm::dot(col.normal, r->position - anopol::camera::camera.cameraPosition) > 0) col.normal = -col.normal;
-                        
-                        adjustments.push_back({col.normal, col.depth});
+                    
+                    if (col.collided && col.depth < 0.02f) {
+                        glm::vec3 correctionDir = glm::normalize(col.A - col.B);
+                        if (glm::dot(col.normal, correctionDir) < 0.0f)
+                            col.normal = -col.normal;
+
+                        float depth = std::max(col.depth, 0.005f);
+                        adjustments.push_back({col.normal, depth});
                     }
                 }
-                iteration++;
-            }
 
-            return adjustments;
-        }));
-    }
-
-    for (auto& fut : futures) {
-        for (const auto& adj : fut.get()) {
-            anopol::camera::camera.cameraPosition += adj.normal * adj.depth;
+                return adjustments;
+            }));
         }
+
+        for (auto& fut : futures) {
+            for (const auto& adj : fut.get()) {
+                accumulatedMTV += adj.normal * adj.depth;
+                totalDepth += adj.depth;
+            }
+        }
+
+        if (totalDepth == 0.0f) break;
+
+        glm::vec3 stableCorrection = glm::normalize(accumulatedMTV) * totalDepth;
+        anopol::camera::camera.cameraPosition += stableCorrection;
+        totalPush += stableCorrection;
+
+        if (glm::length(totalPush) > 2.0f) break;
     }
     anopol::camera::camera.updateLookAt();
     

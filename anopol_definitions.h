@@ -34,8 +34,10 @@
 #define anopol_assert(message) throw std::runtime_error(message)
 #define anopol_max_frames 10
 #define anopol_max_cascades 4
+#define deltaTimeMultiplier 30.0f
 
 float debugTime = 0;
+float deltaTime = 0;
 
 namespace anopol {
     

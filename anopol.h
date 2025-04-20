@@ -113,6 +113,7 @@ void initialize() {
     anopol::pipeline::Pipeline pipeline = anopol::pipeline::Pipeline::CreatePipeline("/Users/dmitriwamback/Documents/Projects/anopol/anopol/shaders/main");
     
     double previousTime = glfwGetTime();
+    double previousDeltaTime = glfwGetTime();
     int frameCount = 0;
     
     while (!glfwWindowShouldClose(context->window)) {
@@ -142,6 +143,10 @@ void initialize() {
         }
                 
         debugTime += 0.1f;
+        
+        double currentDeltatime = glfwGetTime();
+        deltaTime = (currentDeltatime - previousDeltaTime);
+        previousDeltaTime = currentDeltatime;
     }
     
     vkDeviceWaitIdle(context->device);

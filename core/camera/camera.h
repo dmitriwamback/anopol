@@ -24,11 +24,12 @@ public:
         -0.5f, -0.5f, -0.5f,
     };
     
-    glm::vec3 cameraPosition, lookDirection, mouseRay;
+    glm::vec3 cameraPosition, lookDirection, mouseRay, velocity;
     glm::mat4 cameraProjection, cameraLookAt;
     
     float pitch;
     float yaw = 3.0f * 3.141592653f/2.0f;
+    float speed = 15.0f;
     
     float lastMouseX;
     float lastMouseY;
@@ -41,7 +42,7 @@ public:
     static void initialize();
     void update(glm::vec4 movement);
     void updateLookAt();
-    std::vector<float> GetColliderVertices();
+    std::vector<float> GetColliderVertices(glm::vec3 desiredPosition);
 };
 
 Camera camera;
@@ -54,6 +55,7 @@ void Camera::initialize() {
     camera.firstPersonView = false;
     camera.cameraPosition  = glm::vec3(0.0f, 6.0f, 4.0f);
     camera.lookDirection   = glm::vec3(0.0f, 0.0f, -1.0f);
+    camera.velocity        = glm::vec3(0.0f, 0.0f, 0.0f);
     
     camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.01f, 1000.0f);
     camera.cameraProjection[1][1] *= -1;
@@ -74,8 +76,8 @@ void Camera::update(glm::vec4 movement) {
         
         glm::vec3 motion = lookDirection;
         
-        cameraPosition += motion * (forward + backward) * 10.0f;
-        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right) * 10.0f;
+        cameraPosition += motion * (forward + backward) * speed * deltaTimeMultiplier * deltaTime;
+        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right) * speed * deltaTimeMultiplier * deltaTime;
         
         lookDirection = glm::normalize(glm::vec3(
                                        cos(camera.yaw) * cos(camera.pitch),
@@ -91,6 +93,8 @@ void Camera::update(glm::vec4 movement) {
         
         cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
         camera.cameraProjection[1][1] *= -1;
+        
+        velocity = motion;
     }
 }
 
@@ -150,9 +154,15 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
     camera.lastMouseY = ypos;
 }
 
-std::vector<float> Camera::GetColliderVertices() {
+std::vector<float> Camera::GetColliderVertices(glm::vec3 desiredPosition = glm::vec3(0.0f)) {
     
-    glm::mat4 model = anopol::modelMatrix(cameraPosition, glm::vec3(1.5f), glm::vec3(0.0f));
+    glm::vec3 position = cameraPosition;
+    if (glm::length(desiredPosition) != 0) {
+        std::cout << desiredPosition.x << " " << desiredPosition.y << " " << desiredPosition.z << "\n";
+        position = desiredPosition;
+    }
+    
+    glm::mat4 model = anopol::modelMatrix(position, glm::vec3(1.5f), glm::vec3(0.0f));
     
     std::vector<float> projectedVertices = std::vector<float>();
     
