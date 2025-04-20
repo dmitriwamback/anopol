@@ -686,7 +686,7 @@ void Pipeline::Bind(std::string name) {
                     if (glm::distance(r->position, anopol::camera::camera.cameraPosition) > r->ComputeBoundingSphereRadius() + 2.0f) continue;
                     auto col = anopol::collision::GJKCollisionWithCamera(r);
                     
-                    if (col.collided && col.depth < 0.02f) {
+                    if (col.collided && col.depth > 0.02f) {
                         glm::vec3 correctionDir = glm::normalize(col.A - col.B);
                         if (glm::dot(col.normal, correctionDir) < 0.0f)
                             col.normal = -col.normal;
