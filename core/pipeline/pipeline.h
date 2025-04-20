@@ -229,7 +229,7 @@ void Pipeline::InitializePipeline() {
         for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
-            renderable->scale    = glm::vec3(10.f, 20.f, 10.f);
+            renderable->scale    = glm::vec3(10.f, 20.f, 0.1f);
             renderable->rotation = glm::vec3(rand()%360);
             renderable->color    = glm::vec3(rand()%255/255.0f);
             testBatch.Append(renderable);

@@ -31,10 +31,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 
-#define anopol_assert(message) throw std::runtime_error(message)
-#define anopol_max_frames 10
-#define anopol_max_cascades 4
-#define deltaTimeMultiplier 30.0f
+#define anopol_assert(message)      throw std::runtime_error(message)
+#define anopol_max_frames           10
+#define anopol_max_cascades         4
+#define deltaTimeMultiplier         30.0f
+#define golden_ratio                static_cast<float>((1 + sqrt(5)) / 2.0f)
+#define inverse_golden_ratio        1.0f / golden_ratio
 
 float debugTime = 0;
 float deltaTime = 0;

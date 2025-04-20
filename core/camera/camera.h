@@ -13,15 +13,18 @@ namespace anopol::camera {
 class Camera {
 public:
     
+    // vertices for a dodecahedron
     std::vector<float> vertices = {
-        -0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
+        1.0f,  1.0f,  1.0f,   1.0f,  1.0f, -1.0f,
+        1.0f, -1.0f,  1.0f,   1.0f, -1.0f, -1.0f,
+        0.0f,  inverse_golden_ratio,  golden_ratio,   0.0f,  inverse_golden_ratio, -golden_ratio,
+        0.0f, -inverse_golden_ratio,  golden_ratio,   0.0f, -inverse_golden_ratio, -golden_ratio,
+        golden_ratio,  inverse_golden_ratio,  0.0f,   golden_ratio, -inverse_golden_ratio,  0.0f,
+       -golden_ratio,  inverse_golden_ratio,  0.0f,  -golden_ratio, -inverse_golden_ratio,  0.0f,
+        golden_ratio,  0.0f,  inverse_golden_ratio,  -golden_ratio,  0.0f,  inverse_golden_ratio,
+        golden_ratio,  0.0f, -inverse_golden_ratio,  -golden_ratio,  0.0f, -inverse_golden_ratio,
+        0.0f,  golden_ratio,  inverse_golden_ratio,   0.0f, -golden_ratio,  inverse_golden_ratio,
+        0.0f,  golden_ratio, -inverse_golden_ratio,   0.0f, -golden_ratio, -inverse_golden_ratio
     };
     
     glm::vec3 cameraPosition, lookDirection, mouseRay, velocity;
@@ -29,7 +32,7 @@ public:
     
     float pitch;
     float yaw = 3.0f * 3.141592653f/2.0f;
-    float speed = 15.0f;
+    float speed = 25.0f;
     
     float lastMouseX;
     float lastMouseY;
@@ -76,8 +79,12 @@ void Camera::update(glm::vec4 movement) {
         
         glm::vec3 motion = lookDirection;
         
-        cameraPosition += motion * (forward + backward) * speed * deltaTimeMultiplier * deltaTime;
-        cameraPosition -= glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right) * speed * deltaTimeMultiplier * deltaTime;
+        glm::vec3 totalMotion = motion * (forward + backward) - glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right);
+        glm::vec3 normalizedMotion = glm::vec3(0.0f);
+        
+        if (glm::length(totalMotion) > 0.0f) normalizedMotion = glm::normalize(totalMotion);
+        
+        cameraPosition += normalizedMotion * speed * deltaTime;
         
         lookDirection = glm::normalize(glm::vec3(
                                        cos(camera.yaw) * cos(camera.pitch),
@@ -94,7 +101,7 @@ void Camera::update(glm::vec4 movement) {
         cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
         camera.cameraProjection[1][1] *= -1;
         
-        velocity = motion;
+        velocity = totalMotion * speed * deltaTime;
     }
 }
 
@@ -162,7 +169,7 @@ std::vector<float> Camera::GetColliderVertices(glm::vec3 desiredPosition = glm::
         position = desiredPosition;
     }
     
-    glm::mat4 model = anopol::modelMatrix(position, glm::vec3(1.5f), glm::vec3(0.0f));
+    glm::mat4 model = anopol::modelMatrix(position, glm::vec3(0.75f), glm::vec3(0.0f));
     
     std::vector<float> projectedVertices = std::vector<float>();
     

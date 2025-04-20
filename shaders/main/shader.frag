@@ -68,5 +68,7 @@ void main() {
     vec2 zuv = fragp.xy * pushConstants.object.scale.z;
 
     fragc = vec4(diff + specular + ambientColor, 1.0);
+    float gamma = 2.1;
+    fragc.rgb = pow(fragc.rgb, vec3(1.0/gamma));
     fragc.rgb = applyFog(fragc.rgb, length(fragp - cameraPosition));
 }
