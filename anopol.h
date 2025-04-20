@@ -38,10 +38,10 @@ static anopol::anopolContext* context;
 #include "core/camera/camera.h"
 #include "core/render/buffer/uniform_buffer.h"
 
-#include "core/meshutil/mesh_combine_structs.h"
-#include "core/meshutil/mesh_combine.h"
-#include "core/meshutil/batch.h"
-#include "core/meshutil/dynamic_upload.h"
+#include "core/batch/mesh_combine_structs.h"
+#include "core/batch/mesh_combine.h"
+#include "core/batch/batch.h"
+#include "core/batch/dynamic_upload.h"
 
 #include "core/gjkepa/support.h"
 #include "core/gjkepa/simplex.h"
