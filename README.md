@@ -20,7 +20,7 @@
   <li>Vulkan SDK - Core functionality for the Vulkan API</li>
   <li>GLFW - Framework for rendering to the screen (Graphics Library Framework)</li>
   <li>GLM - OpenGL Math library (Vectors, Matrices, etc.)</li>
-  <li>Assimp - Model loader</li>
+  <li>Assimp - Model loader (Open Asset Import Library)</li>
 </ul>
 <p>This engine currently has the skeleton for rendering/displaying objects to the screen. However, I hope to make this project more profound by implementing more sophisticated algorithms.</p>
 <p>Future implementations (individual repositories as to not get lost in one project):</p>

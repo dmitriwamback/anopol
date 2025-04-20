@@ -28,6 +28,14 @@ vec3 lightPosition = vec3(10000.0, 10000.0, 10000.0);
 vec3 lightColor = vec3(243, 165, 90)/255.0;
 vec3 color = vec3(1.0);
 
+vec3 fogColor = vec3(0.4, 0.7, 1.0);
+float fogdst = 250;
+
+vec3 applyFog(vec3 color, float distance) {
+    float fogFactor = clamp(exp(-distance / fogdst), 0.0, 1.0);
+    return mix(fogColor, color, fogFactor);
+}
+
 void main() {
 
     if (pushConstants.object.instanced == 1 && pushConstants.object.batched == 0) { 
@@ -60,4 +68,5 @@ void main() {
     vec2 zuv = fragp.xy * pushConstants.object.scale.z;
 
     fragc = vec4(diff + specular + ambientColor, 1.0);
+    fragc.rgb = applyFog(fragc.rgb, length(fragp - cameraPosition));
 }

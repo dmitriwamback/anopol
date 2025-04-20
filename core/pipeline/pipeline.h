@@ -632,7 +632,7 @@ void Pipeline::Bind(std::string name) {
     renderPassBeginInfo.renderArea.offset   = {0, 0};
     renderPassBeginInfo.renderArea.extent   = context->extent;
 
-    VkClearValue clearColor = {{{0.3f, 0.3f, 0.3f, 1.0f}}};
+    VkClearValue clearColor = {{{0.4f, 0.7f, 1.0f, 1.0f}}};
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = &clearColor;
     
