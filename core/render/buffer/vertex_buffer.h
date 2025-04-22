@@ -14,13 +14,14 @@ class VertexBuffer {
 public:
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
+    VkDeviceSize bufferSize;
     
     void alloc(std::vector<Vertex> vertices);
     void dealloc();
 };
 
 void VertexBuffer::alloc(std::vector<Vertex> vertices) {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    bufferSize = sizeof(vertices[0]) * vertices.size();
     
     VkBuffer staging;
     VkDeviceMemory stagingMemory;
@@ -50,7 +51,7 @@ void VertexBuffer::alloc(std::vector<Vertex> vertices) {
 void VertexBuffer::dealloc() {
     
     vkDestroyBuffer(context->device, vertexBuffer, nullptr);
-    vkFreeMemory(context->device, vertexBufferMemory, nullptr);
+    //vkFreeMemory(context->device, vertexBufferMemory, nullptr);
 }
 
 }

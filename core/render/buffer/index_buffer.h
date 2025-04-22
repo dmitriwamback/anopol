@@ -14,13 +14,14 @@ class IndexBuffer {
 public:
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+    VkDeviceSize bufferSize = 0;
     
     void alloc(std::vector<uint32_t> indices);
     void dealloc();
 };
 
 void IndexBuffer::alloc(std::vector<uint32_t> indices) {
-    VkDeviceSize bufferSize = indices.size() * sizeof(indices[0]);
+    bufferSize = indices.size() * sizeof(indices[0]);
     
     VkBuffer staging;
     VkDeviceMemory stagingMemory;

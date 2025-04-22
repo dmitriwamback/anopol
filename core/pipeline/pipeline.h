@@ -19,32 +19,6 @@ public:
     // Structs
     //------------------------------------------------------------------------------------------//
     
-    struct pipeline {
-        VkPipelineLayout    pipelineLayout;
-        VkRect2D            scissor{};
-        VkViewport          viewport{};
-        VkRenderPass        renderPass;
-        VkPipeline          pipeline;
-    };
-    
-    struct pipelineDefinitions {
-        
-        VkPipelineDynamicStateCreateInfo            dynamicState{};
-        VkPipelineVertexInputStateCreateInfo        vertexInput{};
-        VkPipelineInputAssemblyStateCreateInfo      inputAssembly{};
-        VkPipelineRasterizationStateCreateInfo      rasterizer{};
-        VkPipelineViewportStateCreateInfo           viewportState{};
-        VkPipelineColorBlendStateCreateInfo         colorBlending{};
-        VkPipelineMultisampleStateCreateInfo        multisample{};
-        
-        uint32_t imageIndex;
-    };
-    
-    struct descriptorSets {
-        VkDescriptorPool descriptorPool;
-        std::vector<VkDescriptorSet> descriptorSets;
-    };
-    
     struct CameraAdjustment {
         glm::vec3 normal;
         float depth;
@@ -110,6 +84,7 @@ public:
 private:
     
     VkShaderModule vert, frag;
+    bool isEDown = false;
     
     void InitializePipeline();
     void InitializeShadowDepthPass();
@@ -147,9 +122,9 @@ Pipeline Pipeline::CreatePipeline(std::string shaderFolder) {
     pipeline.vert = vert;
     pipeline.frag = frag;
 
-    pipeline.anopolMainPipeline         = static_cast<Pipeline::pipeline*>(malloc(1 * sizeof(Pipeline::pipeline)));
-    pipeline.anopolPipelineDefinitions  = static_cast<Pipeline::pipelineDefinitions*>(malloc(1 * sizeof(Pipeline::pipelineDefinitions)));
-    pipeline.anopolDescriptorSets       = static_cast<Pipeline::descriptorSets*>(malloc(1 * sizeof(Pipeline::descriptorSets)));
+    pipeline.anopolMainPipeline         = static_cast<struct pipeline*>(malloc(1 * sizeof(struct pipeline)));
+    pipeline.anopolPipelineDefinitions  = static_cast<pipelineDefinitions*>(malloc(1 * sizeof(pipelineDefinitions)));
+    pipeline.anopolDescriptorSets       = static_cast<descriptorSets*>(malloc(1 * sizeof(descriptorSets)));
     
     pipeline.InitializePipeline();
     pipeline.CreateCommandBuffers();
@@ -223,16 +198,19 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
-    int length = 200;
+    int length = 6;
+    int idx = 0;
     
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
-            renderable->scale    = glm::vec3(10.f, 20.f, 0.1f);
+            renderable->scale    = glm::vec3(10.f, 20.f, 5.0f);
             renderable->rotation = glm::vec3(rand()%360);
             renderable->color    = glm::vec3(rand()%255/255.0f);
+                        
             testBatch.Append(renderable);
+            idx++;
         }
     }
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
@@ -407,7 +385,7 @@ void Pipeline::InitializePipeline() {
         instanceDescriptorBufferInfo.range  = sizeof(anopol::render::InstanceBuffer);
         
         VkDescriptorBufferInfo transformDescriptorBufferInfo{};
-        transformDescriptorBufferInfo.buffer = testBatch.transformBuffer;
+        transformDescriptorBufferInfo.buffer = testBatch.GetBatchFrame(i).transformBuffer;
         transformDescriptorBufferInfo.offset = 0;
         transformDescriptorBufferInfo.range  = sizeof(anopol::batch::batchIndirectTransformation) * testBatch.drawInformation.size();
         
@@ -682,8 +660,17 @@ void Pipeline::Bind(std::string name) {
 
                 for (int j = start; j < end; ++j) {
                     auto* r = renderables[j];
-
+                    
+                    //anopol::camera::Ray ray = {anopol::camera::camera.cameraPosition, anopol::camera::camera.mouseRay};
+                    //std::optional<anopol::camera::Intersection> intersection = anopol::camera::Raycast(ray, r);
+                    
+                    //if (intersection != std::nullopt) {
+                    //    intersection->target->color = glm::vec3(1.0f, 0.0f, 0.0f);
+                    //}
+                    
+                    if (!r->collisionEnabled) continue;
                     if (glm::distance(r->position, anopol::camera::camera.cameraPosition) > r->ComputeBoundingSphereRadius() + 2.0f) continue;
+                    
                     auto col = anopol::collision::GJKCollisionWithCamera(r);
                     
                     if (col.collided && col.depth > 0.02f) {
@@ -706,7 +693,6 @@ void Pipeline::Bind(std::string name) {
                 totalDepth += adj.depth;
             }
         }
-
         if (totalDepth == 0.0f) break;
 
         glm::vec3 stableCorrection = glm::normalize(accumulatedMTV) * totalDepth;
@@ -717,67 +703,36 @@ void Pipeline::Bind(std::string name) {
     }
     anopol::camera::camera.updateLookAt();
     
+    if (glfwGetKey(context->window, GLFW_KEY_E) && !isEDown) {
+        
+        anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
+        renderable->position = anopol::camera::camera.cameraPosition - glm::vec3(0.0f, 2.0f, 0.0f);
+        renderable->scale    = glm::vec3(5.0f, 5.0f, 5.0f);
+        renderable->rotation = glm::vec3(rand()%360);
+        renderable->color    = glm::vec3(rand()%255/255.0f);
+                    
+        testBatch.Append(renderable);
+        testBatch.Combine();
+        isEDown = true;
+    }
+    
+    if (glfwGetKey(context->window, GLFW_KEY_E) == GLFW_RELEASE && isEDown) {
+        isEDown = false;
+    }
+    
     uniformBufferMemory.Update(currentFrame);
     
-    
     //------------------------------------------------------------------------------------------//
-    // Rendering objects (Renderables)
+    // Rendering Batch
     //------------------------------------------------------------------------------------------//
-    
-    //for (anopol::render::Renderable* r : debugRenderables) {
-                        
-        //------------------------------------------------------------------------------------------//
-        // Push Constants
-        //------------------------------------------------------------------------------------------//
-        /*
-        anopol::render::anopolStandardPushConstants standardPushConstants{};
-        standardPushConstants.scale             = glm::vec4(r->scale, 1.0f);
-        standardPushConstants.position          = glm::vec4(r->position, 1.0f);
-        standardPushConstants.rotation          = glm::vec4(r->rotation, 1.0f);
-        standardPushConstants.instanced         = false;
-        
-        glm::mat4 model = modelMatrix(standardPushConstants.position,
-                                      standardPushConstants.scale,
-                                      standardPushConstants.rotation);
-        
-        standardPushConstants.model = model;
-        
-        vkCmdPushConstants(commandBuffers[currentFrame],
-                           anopolMainPipeline->pipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           0,
-                           sizeof(anopol::render::anopolStandardPushConstants),
-                           &standardPushConstants);
-        */
-        //------------------------------------------------------------------------------------------//
-        // Rendering
-        //------------------------------------------------------------------------------------------//
-        
-        //vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &r->vertexBuffer.vertexBuffer, offsets);
-        /*
-        if (r->isIndexed) {
-            vkCmdBindIndexBuffer(commandBuffers[currentFrame], r->indexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(commandBuffers[currentFrame], static_cast<uint32_t>(r->indices.size()), 1, 0, 0, 0);
-        }
-        else {
-            vkCmdDraw(commandBuffers[currentFrame], static_cast<uint32_t>(r->vertices.size()), 1, 0, 0);
-        }
-         */
-        
-        //iteration++;
-    //}
-    
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
-    //vkCmdBindIndexBuffer(commandBuffers[currentFrame], testBatch.vertexBuffer.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    
-    //for (anopol::batch::batchDrawInformation drawInfo : testBatch.drawInformation) {
         
     anopol::render::anopolStandardPushConstants standardPushConstants{};
-    standardPushConstants.scale             = glm::vec4(testBatch.meshCombineGroup.renderables[0]->scale, 1.0f);
-    standardPushConstants.position          = glm::vec4(testBatch.meshCombineGroup.renderables[0]->position, 1.0f);
-    standardPushConstants.rotation          = glm::vec4(testBatch.meshCombineGroup.renderables[0]->rotation, 1.0f);
-    standardPushConstants.color             = glm::vec4(testBatch.meshCombineGroup.renderables[0]->color, 1.0f);
+    standardPushConstants.scale             = glm::vec4(glm::vec3(0), 1.0f);
+    standardPushConstants.position          = glm::vec4(glm::vec3(0), 1.0f);
+    standardPushConstants.rotation          = glm::vec4(glm::vec3(0), 1.0f);
+    standardPushConstants.color             = glm::vec4(glm::vec3(0), 1.0f);
     
     standardPushConstants.instanced = false;
     standardPushConstants.batched = true;
@@ -794,10 +749,7 @@ void Pipeline::Bind(std::string name) {
                        0,
                        sizeof(anopol::render::anopolStandardPushConstants),
                        &standardPushConstants);
-        
-    //}
-    
-    vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
+    vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.GetBatchFrame(currentFrame).drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
     
     
     //------------------------------------------------------------------------------------------//

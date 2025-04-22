@@ -100,7 +100,7 @@ VkCommandBuffer beginSingleCommandBuffer() {
     return commandBuffer;
 }
 
-void endSingleCommandBuffer(VkCommandBuffer commandBuffer) {
+void endSingleCommandBuffer(VkCommandBuffer commandBuffer, VkFence fence = VK_NULL_HANDLE) {
     
     vkEndCommandBuffer(commandBuffer);
     
@@ -109,8 +109,14 @@ void endSingleCommandBuffer(VkCommandBuffer commandBuffer) {
     submit.commandBufferCount   = 1;
     submit.pCommandBuffers      = &commandBuffer;
     
-    vkQueueSubmit(context->graphicsQueue, 1, &submit, VK_NULL_HANDLE);
-    vkQueueWaitIdle(context->graphicsQueue);
+    vkQueueSubmit(context->graphicsQueue, 1, &submit, fence);
+    
+    if (fence != VK_NULL_HANDLE) {
+        vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
+    } 
+    else {
+        vkQueueWaitIdle(context->graphicsQueue);
+    }
     
     vkFreeCommandBuffers(context->device, commandPool, 1, &commandBuffer);
 }

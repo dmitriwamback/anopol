@@ -15,8 +15,8 @@ public:
     
     // vertices for a dodecahedron
     std::vector<float> vertices = {
-        1.0f,  1.0f,  1.0f,   1.0f,  1.0f, -1.0f,
-        1.0f, -1.0f,  1.0f,   1.0f, -1.0f, -1.0f,
+        1.0f,  1.0f,                  1.0f,           1.0f,  1.0f,                         -1.0f,
+        1.0f, -1.0f,                  1.0f,           1.0f, -1.0f,                         -1.0f,
         0.0f,  inverse_golden_ratio,  golden_ratio,   0.0f,  inverse_golden_ratio, -golden_ratio,
         0.0f, -inverse_golden_ratio,  golden_ratio,   0.0f, -inverse_golden_ratio, -golden_ratio,
         golden_ratio,  inverse_golden_ratio,  0.0f,   golden_ratio, -inverse_golden_ratio,  0.0f,

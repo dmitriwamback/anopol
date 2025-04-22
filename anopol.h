@@ -50,6 +50,7 @@ static anopol::anopolContext* context;
 
 #include "core/pipeline/collision_ray_thread.h"
 
+#include "core/pipeline/pipeline_util.h"
 #include "core/pipeline/pipeline.h"
 #include "core/pipeline/scene.h"
 

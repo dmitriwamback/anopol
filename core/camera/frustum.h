@@ -8,5 +8,8 @@
 #ifndef frustum_h
 #define frustum_h
 
+namespace anopol::camera {
+
+}
 
 #endif /* frustum_h */

@@ -16,7 +16,7 @@ public:
     std::vector<uint32_t> indices;
     VertexBuffer vertexBuffer;
     IndexBuffer  indexBuffer;
-    bool isIndexed;
+    bool isIndexed, collisionEnabled = true;
     
     glm::vec3 position, rotation, scale, color;
     
