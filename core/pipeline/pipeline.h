@@ -8,8 +8,6 @@
 #ifndef pipeline_h
 #define pipeline_h
 
-#include <future>
-
 namespace anopol::pipeline {
 
 class Pipeline {
@@ -198,7 +196,7 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
-    int length = 6;
+    int length = 200;
     int idx = 0;
     
     for (int i = 0; i < length; i++) {

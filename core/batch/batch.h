@@ -8,7 +8,8 @@
 #ifndef batch_h
 #define batch_h
 
-#define max_batch_buffer_size static_cast<int>(2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2) // 2^16 = 65536
+#define max_batch_draw_indirect_size static_cast<int>(2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2)      // 2^18 = 262144
+#define max_batch_indirect_transform_size static_cast<int>(2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2*2) // 2^18 = 262144
 
 namespace anopol::batch {
 
@@ -47,6 +48,7 @@ private:
     
     batchFrame frames[anopol_max_frames];
     bool vertexBufferAllocated, indexBufferAllocated, framesAllocated;
+    int processed;
     void allocateFrame(int frameidx);
 };
 
@@ -58,6 +60,13 @@ Batch Batch::Create() {
     batch.indexBuffer = anopol::render::IndexBuffer();
     
     batch.meshCombineGroup = MeshCombineGroup();
+    batch.processed = 0;
+    
+    batch.batchVertices.reserve(4294967296);
+    batch.batchIndices.reserve(4294967296);
+    batch.drawInformation.reserve(4294967296);
+    batch.transformations.reserve(4294967296);
+
     
     return batch;
 }
@@ -80,18 +89,18 @@ void Batch::Append(std::vector<anopol::render::Asset*> assets) {
 
 void Batch::Combine(int currentFrame = -1) {
     
+    batchVertices.clear();
+    batchIndices.clear();
+    drawInformation.clear();
+    transformations.clear();
+    
     VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     if (vkCreateFence(context->device, &fenceCreateInfo, nullptr, &fence) != VK_SUCCESS) {
         anopol_assert("Failed to create fence");
     }
-    
-    drawInformation.clear();
-    batchVertices.clear();
-    batchIndices.clear();
-    transformations.clear();
-    
+        
     uint32_t vertexOffset = 0, indexOffset = 0, object = 0;
     
     for (anopol::render::Renderable* renderable : meshCombineGroup.renderables) {
@@ -124,10 +133,15 @@ void Batch::Combine(int currentFrame = -1) {
         vertexOffset += renderable->vertices.size();
         
         drawInformation.push_back(drawInfo);
-        for (anopol::render::Vertex vertex : renderable->vertices) {
-            batchVertices.push_back(vertex);
-        }
+        
+#if defined(__APPLE__)
+        // to implement metal shader
+        batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
+#else
+        batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
+#endif
     }
+    processed = meshCombineGroup.renderables.size()-1;
     /*
     for (anopol::render::Asset* asset : meshCombineGroup.assets) {
         for (anopol::render::Asset::Mesh mesh : asset->meshes) {
@@ -145,20 +159,9 @@ void Batch::Combine(int currentFrame = -1) {
     //------------------------------------------------------------------------------------------//
     // Allocating Vertex Buffer
     //------------------------------------------------------------------------------------------//
+        
+    vertexBuffer.alloc(batchVertices);
     
-    if (vertexBuffer.vertexBufferMemory != VK_NULL_HANDLE) {
-        vertexBuffer.dealloc();
-        vertexBufferAllocated = false;
-    }
-    if (indexBufferAllocated) {
-        indexBuffer.dealloc();
-        indexBufferAllocated = false;
-    }
-    
-    if (!vertexBufferAllocated) {
-        vertexBuffer.alloc(batchVertices);
-        vertexBufferAllocated = true;
-    }
     if (batchIndices.size() > 0 && !indexBufferAllocated) {
         indexBuffer.alloc(batchIndices);
         indexBufferAllocated = true;
@@ -179,6 +182,7 @@ void Batch::Combine(int currentFrame = -1) {
     
     vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
     vkDestroyFence(context->device, fence, nullptr);
+
 }
 
 void Batch::allocateFrame(int frameidx) {
@@ -197,7 +201,7 @@ void Batch::allocateFrame(int frameidx) {
         drawCommands.push_back(command);
     }
     
-    VkDeviceSize bufferSize = sizeof(VkDrawIndirectCommand) * max_batch_buffer_size;
+    VkDeviceSize bufferSize = sizeof(VkDrawIndirectCommand) * max_batch_draw_indirect_size;
     
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -263,7 +267,7 @@ void Batch::allocateFrame(int frameidx) {
 
 void Batch::UpdateTransforms(batchFrame& frame) {
     
-    VkDeviceSize bufferSize = sizeof(batchIndirectTransformation) * max_batch_buffer_size;
+    VkDeviceSize bufferSize = sizeof(batchIndirectTransformation) * max_batch_indirect_transform_size;
     
     if (!frame.allocatedTransformations) {
         anopol::ll::createBuffer(bufferSize,

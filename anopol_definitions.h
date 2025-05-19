@@ -14,6 +14,7 @@
 #include <fstream>
 #include <thread>
 #include <mutex>
+#include <future>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -59,6 +60,8 @@ struct anopolContext {
     
     GLFWwindow*         window;
     VkDebugUtilsMessengerEXT debug;
+    
+    std::mutex graphicsQueueMutex;
 };
 
 struct swapchainDetails {

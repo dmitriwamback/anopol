@@ -26,7 +26,8 @@ public:
     float boundingSphereRadius;
 private:
     glm::vec3 lastPosition, lastRotation, lastScale;
-    bool computedBoundingSphere;
+    glm::mat4 currentModel;
+    bool computedBoundingSphere, computedModelMatrix;
 };
 
 Renderable* Renderable::Create() {
@@ -40,6 +41,8 @@ Renderable* Renderable::Create() {
     renderable->lastScale    = renderable->scale;
     renderable->lastRotation = renderable->rotation;
     renderable->lastPosition = renderable->position;
+    
+    renderable->currentModel = glm::mat4(0.0f);
     
     renderable->computedBoundingSphere = false;
     
@@ -113,13 +116,16 @@ Renderable* Renderable::Create() {
 
 std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
     
-    glm::mat4 model = anopol::modelMatrix(position, scale, rotation);
+    if (lastPosition != position || lastScale != scale || lastRotation != rotation || !computedModelMatrix) {
+        currentModel = anopol::modelMatrix(position, scale, rotation);
+        computedModelMatrix = true;
+    }
     
     std::vector<float> projectedVertices = std::vector<float>();
     
     for (int i = 0; i < vertices.size(); i++) {
         glm::vec3 vertex = vertices[i].vertex;
-        glm::vec3 projected = glm::vec3(model * glm::vec4(vertex, 1.0));
+        glm::vec3 projected = glm::vec3(currentModel * glm::vec4(vertex, 1.0));
         
         projectedVertices.push_back(projected.x);
         projectedVertices.push_back(projected.y);
@@ -130,6 +136,10 @@ std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
             projectedVertices.push_back(0);
         }
     }
+    lastPosition = position;
+    lastScale    = scale;
+    lastRotation = rotation;
+    
     return projectedVertices;
 }
 

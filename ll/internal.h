@@ -208,7 +208,7 @@ void createBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryProp
     vkBindBufferMemory(context->device, buffer, bufferMemory, 0);
 }
 
-void memCopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
+void memCopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkFence fence = VK_NULL_HANDLE) {
     
     VkCommandBuffer commandBuffer = beginSingleCommandBuffer();
     
@@ -216,7 +216,7 @@ void memCopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
     copy.size = size;
     vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copy);
     
-    endSingleCommandBuffer(commandBuffer);
+    endSingleCommandBuffer(commandBuffer, fence);
 }
 
 void memCopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {

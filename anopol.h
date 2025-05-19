@@ -8,8 +8,14 @@
 #ifndef anopol_h
 #define anopol_h
 
+#define GLFW_INCLUDE_VULKAN
+#include <glfw3.h>
+#include <vulkan/vulkan.h>
+#include <iostream>
+
 #include "anopol_definitions.h"
 static anopol::anopolContext* context;
+
 
 #include "core/math/math.h"
 
@@ -37,6 +43,10 @@ static anopol::anopolContext* context;
 #include "core/camera/ray.h"
 #include "core/camera/camera.h"
 #include "core/render/buffer/uniform_buffer.h"
+
+#if defined(__APPLE__)
+//#include "core/batch/bgpu/mac/macos_batch_combine_wrapper.h"
+#endif
 
 #include "core/batch/mesh_combine_structs.h"
 #include "core/batch/mesh_combine.h"
