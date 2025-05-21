@@ -84,6 +84,8 @@ private:
     VkShaderModule vert, frag;
     bool isEDown = false;
     
+    anopol::render::OffscreenRendering offscreen;
+    
     void InitializePipeline();
     void InitializeShadowDepthPass();
     void CreateSynchronizedObjects();
@@ -196,6 +198,8 @@ void Pipeline::InitializePipeline() {
     
     testBatch = anopol::batch::Batch::Create();
     
+    offscreen = anopol::render::OffscreenRendering::Create();
+    
     int length = 200;
     int idx = 0;
     
@@ -220,9 +224,9 @@ void Pipeline::InitializePipeline() {
             float x = (i - 1050 / 2) * 2.0f;
             float z = (j - 1050 / 2) * 2.0f;
             
-            float y = floor(math::noise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 1039.3f) * 10.0f);
+            float y = floor(math::overlapNoise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 0.4, 1.8, 10, 1039.3f * 10.0f));
                         
-            testAsset->PushInstance(glm::vec3(x, -50.0f + y, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(1.0f, 0.8f, 0.7f));
+            testAsset->PushInstance(glm::vec3(x, -100.0f + y, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(1.0f, 0.8f, 0.7f));
         }
     }
     testAsset->AllocInstances();
@@ -342,7 +346,7 @@ void Pipeline::InitializePipeline() {
     uniformBufferLayoutBinding.binding          = 2;
     uniformBufferLayoutBinding.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniformBufferLayoutBinding.descriptorCount  = 1;
-    uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT;
+    uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     
     VkDescriptorSetLayoutBinding batchingBinding{};
     batchingBinding.binding                     = 3;
@@ -584,6 +588,8 @@ void Pipeline::Bind(std::string name) {
     // Binding
     //------------------------------------------------------------------------------------------//
     
+    //anopol::lighting::fogDst = 150 * (sin(debugTime/10.0f) + 1) + 20;
+    
     vkWaitForFences(context->device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -717,12 +723,13 @@ void Pipeline::Bind(std::string name) {
     if (glfwGetKey(context->window, GLFW_KEY_E) == GLFW_RELEASE && isEDown) {
         isEDown = false;
     }
-    
+        
     uniformBufferMemory.Update(currentFrame);
     
     //------------------------------------------------------------------------------------------//
     // Rendering Batch
     //------------------------------------------------------------------------------------------//
+    
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
         
@@ -748,7 +755,6 @@ void Pipeline::Bind(std::string name) {
                        sizeof(anopol::render::anopolStandardPushConstants),
                        &standardPushConstants);
     vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.GetBatchFrame(currentFrame).drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
-    
     
     //------------------------------------------------------------------------------------------//
     // Rendering Models / Instancing
@@ -802,6 +808,11 @@ void Pipeline::Bind(std::string name) {
     }
     
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
+    
+    
+    //offscreen.Render(testBatch, commandBuffers[currentFrame], anopolMainPipeline->pipelineLayout, currentFrame);
+    
+    
     if (vkEndCommandBuffer(commandBuffers[currentFrame]) != VK_SUCCESS) anopol_assert("Failed to record command buffer");
     
     //------------------------------------------------------------------------------------------//
@@ -976,6 +987,7 @@ void Pipeline::CleanUp() {
     vkFreeCommandBuffers(context->device, ll::commandPool, anopol_max_frames, commandBuffers.data());
     
     testBatch.Dealloc();
+    offscreen.Free();
     
     for (anopol::render::Renderable* renderable : debugRenderables) {
         renderable->vertexBuffer.dealloc();

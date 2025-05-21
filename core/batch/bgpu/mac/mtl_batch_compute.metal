@@ -103,3 +103,8 @@ kernel void batchMergeVertices(
         };
     }
 }
+
+
+kernel void raycast() {
+    
+}

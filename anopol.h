@@ -16,7 +16,7 @@
 #include "anopol_definitions.h"
 static anopol::anopolContext* context;
 
-
+#include "core/pipeline/lighting.h"
 #include "core/math/math.h"
 
 #include "ll/mem.h"
@@ -45,13 +45,17 @@ static anopol::anopolContext* context;
 #include "core/render/buffer/uniform_buffer.h"
 
 #if defined(__APPLE__)
-//#include "core/batch/bgpu/mac/macos_batch_combine_wrapper.h"
+#define APPLE_USE_METAL_GPU_HELPERS
+//#define APPLE_USE_OPENCL_GPU_HELPERS
+#include "core/batch/bgpu/mac/macos_batch_combine_wrapper.h"
 #endif
 
 #include "core/batch/mesh_combine_structs.h"
 #include "core/batch/mesh_combine.h"
 #include "core/batch/batch.h"
 #include "core/batch/dynamic_upload.h"
+
+#include "core/render/offscreen.h"
 
 #include "core/gjkepa/support.h"
 #include "core/gjkepa/simplex.h"

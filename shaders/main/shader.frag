@@ -24,12 +24,21 @@ layout (push_constant) uniform PushConstant {
 } pushConstants;
 
 
+layout (std140, binding = 2) uniform anopolStandardUniform {
+    mat4 projection;
+    mat4 lookAt;
+
+    vec3 cameraPosition;
+    float t;
+    float fogDst;
+} ubo;
+
 vec3 lightPosition = vec3(10000.0, 10000.0, 10000.0);
 vec3 lightColor = vec3(243, 165, 90)/255.0;
 vec3 color = vec3(1.0);
 
 vec3 fogColor = vec3(0.4, 0.7, 1.0);
-float fogdst = 250;
+float fogdst = ubo.fogDst;
 
 vec3 applyFog(vec3 color, float distance) {
     float fogFactor = clamp(exp(-distance / fogdst), 0.0, 1.0);

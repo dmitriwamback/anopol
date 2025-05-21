@@ -16,6 +16,7 @@ struct anopolStandardUniform {
     glm::mat4 lookAt;
     glm::vec3 cameraPosition;
     float t;
+    float fogDst;
 };
 anopolStandardUniform asu{};
 
@@ -55,6 +56,7 @@ UniformBuffer UniformBuffer::Create() {
 void UniformBuffer::Update(int currentFrame) {
         
     asu.t = debugTime;
+    asu.fogDst = anopol::lighting::fogDst;
     asu.projection = anopol::camera::camera.cameraProjection;
     asu.lookAt = anopol::camera::camera.cameraLookAt;
     asu.cameraPosition = anopol::camera::camera.cameraPosition;

@@ -18,6 +18,8 @@ public:
     ~BatchCombine();
     
     void Combine(std::vector<anopol::render::Vertex> vertices);
+private:
+    BatchCombineImplementation* implementation;
 };
 
 }

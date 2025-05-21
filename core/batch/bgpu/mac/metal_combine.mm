@@ -20,6 +20,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include "../../../render/vertex.h"
+#include "macos_batch_combine_wrapper.h"
 
 namespace anopol::metal {
 
@@ -30,7 +31,26 @@ public:
     id<MTLComputePipelineState> pipeline;
     
     BatchCombineImplementation();
-    void Add(float* a, float* b, glm::vec4* result, int count);
+    void Combine(std::vector<anopol::render::Vertex> vertices);
 };
+
+BatchCombineImplementation::BatchCombineImplementation() {
+    device = MTLCreateSystemDefaultDevice();
+    commandQueue = [device newCommandQueue];
+    
+    NSString *path = @"/Users/dmitriwamback/Documents/Projects/anopol/anopol/core/batch/bgpu/mac/mtl_batch_compute.metallib";
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    dispatch_data_t dispatchData = dispatch_data_create(data.bytes, data.length, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+    
+    NSError *error = nil;
+    id<MTLLibrary> library = [device newLibraryWithData:dispatchData error:&error];
+    id<MTLFunction> function = [library newFunctionWithName:@"batchMergeVertices"];
+    pipeline = [device newComputePipelineStateWithFunction:function error:&error];
+}
+
+void BatchCombineImplementation::Combine(std::vector<anopol::render::Vertex> vertices) {
+    
+    
+}
 
 }

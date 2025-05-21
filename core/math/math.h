@@ -83,6 +83,22 @@ double noise(double x, double y, double z) {
                                       gradient(p[BB + 1], x - 1, y - 1, z - 1))));
 }
 
+double overlapNoise(double x, double y, double lacunarity, double persistance, int octaves, double seed) {
+    
+    double freq = .5,
+           ampl = 20;
+    
+    double n = 0;
+    
+    for (int i = 0; i < octaves; i++) {
+        n += noise(x*freq, y*freq, seed)*ampl;
+        freq *= lacunarity;
+        ampl *= persistance;
+    }
+    
+    return n;
+}
+
 }
 
 #endif /* math_h */

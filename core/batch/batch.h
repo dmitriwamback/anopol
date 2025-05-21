@@ -134,9 +134,11 @@ void Batch::Combine(int currentFrame = -1) {
         
         drawInformation.push_back(drawInfo);
         
-#if defined(__APPLE__)
+#if defined(__APPLE__) && defined(APPLE_USE_METAL_GPU_HELPERS)
         // to implement metal shader
         batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
+#elif defined(__APPLE__) && defined(APPLE_USE_OPENCL_GPU_HELPERS)
+        
 #else
         batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
 #endif
