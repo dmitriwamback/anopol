@@ -8,6 +8,7 @@ struct anopolStandardPushConstants {
     mat4 model;
     int instanced;
     int batched;
+    int physicallyBasedRendering;
 };
 
 struct instanceProperties {

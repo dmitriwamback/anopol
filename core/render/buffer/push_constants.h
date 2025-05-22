@@ -18,6 +18,7 @@ struct anopolStandardPushConstants {
     glm::mat4 model;
     int instanced = false;
     int batched = false;
+    int physicallyBasedRendering = false;
     uint32_t padding = 0;
 };
 

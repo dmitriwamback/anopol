@@ -18,10 +18,13 @@ struct anopolStandardPushConstants {
     mat4 model;
     int instanced;
     int batched;
+    int physicallyBasedRendering;
 };
 layout (push_constant) uniform PushConstant {
     anopolStandardPushConstants object;
 } pushConstants;
+
+layout(set = 1, binding = 0) uniform sampler2D baseTexture;
 
 
 layout (std140, binding = 2) uniform anopolStandardUniform {
@@ -57,26 +60,30 @@ void main() {
         color = pushConstants.object.color.rgb;
     }
 
-    float ambientStrength = 0.2;
-    vec3 ambientColor = frag * ambientStrength;
+    if (pushConstants.object.physicallyBasedRendering == 0) {
+        float ambientStrength = 0.2;
+        vec3 ambientColor = frag * ambientStrength;
 
-    vec3 n = normalize(normal);
-    vec3 lightDirection = normalize(lightPosition - fragp);
-    vec3 viewDirection = normalize(cameraPosition - fragp);
+        vec3 n = normalize(normal);
+        vec3 an = abs(n);
+        vec3 lightDirection = normalize(lightPosition - fragp);
+        vec3 viewDirection = normalize(cameraPosition - fragp);
 
-    vec3 diff = max(dot(n, lightDirection), 0.0) * color;
+        vec3 diff = max(dot(n, lightDirection), 0.0) * color;
 
-    vec3 halfWay = normalize(lightDirection + viewDirection);
-    vec3 reflectDirection = reflect(-lightDirection, n);
+        vec3 halfWay = normalize(lightDirection + viewDirection);
+        vec3 reflectDirection = reflect(-lightDirection, n);
 
-    float spec = pow(max(dot(n, halfWay), 0.0), 8.0);
-    vec3 specular = lightColor * spec;
+        float spec = pow(max(dot(n, halfWay), 0.0), 8.0);
+        vec3 specular = lightColor * spec;
 
-    vec2 xuv = fragp.zy * pushConstants.object.scale.x;
-    vec2 yuv = fragp.xz * pushConstants.object.scale.y;
-    vec2 zuv = fragp.xy * pushConstants.object.scale.z;
+        fragc = texture(baseTexture, uv) * vec4(diff + specular + ambientColor, 1.0);
+    }
+    else {
 
-    fragc = vec4(diff + specular + ambientColor, 1.0);
+    }
+
+
     float gamma = 2.1;
     fragc.rgb = pow(fragc.rgb, vec3(1.0/gamma));
     fragc.rgb = applyFog(fragc.rgb, length(fragp - cameraPosition));
