@@ -36,6 +36,8 @@
 #define anopol_max_frames           3
 #define anopol_max_cascades         4
 #define deltaTimeMultiplier         30.0f
+#define anopol_max_textures         512
+
 #define golden_ratio                static_cast<float>((1 + sqrt(5)) / 2.0f)
 #define inverse_golden_ratio        1.0f / golden_ratio
 

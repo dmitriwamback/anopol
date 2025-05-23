@@ -25,7 +25,9 @@ layout (push_constant) uniform PushConstant {
 } pushConstants;
 
 layout(set = 1, binding = 0) uniform sampler2D baseTexture;
-
+//layout(set = 1, binding = 1) uniform sampler2D metallic;
+//layout(set = 1, binding = 2) uniform sampler2D roughness;
+//layout(set = 1, binding = 3) uniform sampler2D normalMap;
 
 layout (std140, binding = 2) uniform anopolStandardUniform {
     mat4 projection;
@@ -36,16 +38,56 @@ layout (std140, binding = 2) uniform anopolStandardUniform {
     float fogDst;
 } ubo;
 
-vec3 lightPosition = vec3(10000.0, 10000.0, 10000.0);
+vec3 lightPosition = vec3(0.0, 1000.0, 0.0);
 vec3 lightColor = vec3(243, 165, 90)/255.0;
 vec3 color = vec3(1.0);
 
 vec3 fogColor = vec3(0.4, 0.7, 1.0);
 float fogdst = ubo.fogDst;
 
-vec3 applyFog(vec3 color, float distance) {
+
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+
+    float nom   = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = 3.14159265358 * denom * denom;
+
+    return nom / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+
+
+
+vec3 applyFog(vec3 col, float distance) {
     float fogFactor = clamp(exp(-distance / fogdst), 0.0, 1.0);
-    return mix(fogColor, color, fogFactor);
+    return mix(fogColor, col, fogFactor);
 }
 
 void main() {
@@ -60,14 +102,15 @@ void main() {
         color = pushConstants.object.color.rgb;
     }
 
+    vec3 n = normalize(normal);
+    vec3 viewDirection = normalize(cameraPosition - fragp);
+    vec3 lightDirection = normalize(lightPosition - fragp);
+
+    vec3 albedo = texture(baseTexture, uv).rgb;
+
     if (pushConstants.object.physicallyBasedRendering == 0) {
         float ambientStrength = 0.2;
         vec3 ambientColor = frag * ambientStrength;
-
-        vec3 n = normalize(normal);
-        vec3 an = abs(n);
-        vec3 lightDirection = normalize(lightPosition - fragp);
-        vec3 viewDirection = normalize(cameraPosition - fragp);
 
         vec3 diff = max(dot(n, lightDirection), 0.0) * color;
 
@@ -80,7 +123,40 @@ void main() {
         fragc = texture(baseTexture, uv) * vec4(diff + specular + ambientColor, 1.0);
     }
     else {
+        float mockMetallic = 1.0;
+        float mockRoughness = albedo.r;
 
+        vec3 F0 = vec3(0.04); 
+        F0 = mix(F0, albedo, mockMetallic);
+
+        vec3 Lo = vec3(0.0);
+
+        vec3 H = normalize(viewDirection + lightDirection);
+        float dst = length(lightPosition - fragp);
+        float attenuation = 1.0 / (dst * dst);
+        vec3 radiance = lightColor * attenuation * 10000000.0;
+
+        float NDF = DistributionGGX(n, H, mockRoughness);   
+        float G   = GeometrySmith(n, viewDirection, lightDirection, mockRoughness);      
+        vec3 F    = fresnelSchlick(max(dot(H, viewDirection), 0.0), F0);
+        
+        vec3 numerator    = NDF * G * F; 
+        float denominator = 4.0 * max(dot(n, viewDirection), 0.0) * max(dot(n, lightDirection), 0.0) + 0.0001;
+        vec3 specular = numerator / denominator;
+        
+        vec3 kS = F;
+        vec3 kD = clamp(vec3(1.0) - kS, 0.0, 1.0);
+
+        kD *= 1 - mockMetallic;	  
+
+        float NdotL = max(dot(n, lightDirection), 0.0);        
+
+        Lo += (kD * albedo / 3.14159265358 + specular) * radiance * NdotL;
+
+        vec3 ambient = vec3(0.2) * albedo;
+        vec3 col = ambient + Lo;
+        col = col / (col + vec3(1.0));
+        fragc = vec4(col, 1.0);
     }
 
 

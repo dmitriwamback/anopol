@@ -210,7 +210,7 @@ void Pipeline::InitializePipeline() {
         for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
-            renderable->scale    = glm::vec3(10.f, 20.f, 5.0f);
+            renderable->scale    = glm::vec3(10.f, 10.f, 10.0f);
             renderable->rotation = glm::vec3(rand()%360);
             renderable->color    = glm::vec3(rand()%255/255.0f);
                         
@@ -249,13 +249,13 @@ void Pipeline::InitializePipeline() {
     
     std::array<VkDescriptorPoolSize, 4> poolSizes{};
     
-    poolSizes[0].type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // Uniform Buffer
     poolSizes[0].descriptorCount        = (uint32_t)anopol_max_frames;
-    poolSizes[1].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Instance Buffer
     poolSizes[1].descriptorCount        = (uint32_t)anopol_max_frames;
-    poolSizes[2].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Batching Buffer
     poolSizes[2].descriptorCount        = (uint32_t)anopol_max_frames;
-    poolSizes[3].type                   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[3].type                   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // Texture Buffer
     poolSizes[3].descriptorCount        = (uint32_t)anopol_max_frames * 4;
     
     VkDescriptorPoolCreateInfo poolCreateInfo{};
@@ -340,7 +340,7 @@ void Pipeline::InitializePipeline() {
     anopolPipelineDefinitions->multisample.alphaToOneEnable                = VK_FALSE;
     
     //------------------------------------------------------------------------------------------//
-    // Uniform, Instance, Batching Descriptor Sets
+    // Uniform, Instance, Batching, Texture Descriptor Sets
     //------------------------------------------------------------------------------------------//
     
     VkDescriptorSetLayoutBinding instanceBufferBinding{};
@@ -820,6 +820,7 @@ void Pipeline::Bind(std::string name) {
     
     standardPushConstants.instanced = false;
     standardPushConstants.batched = true;
+    standardPushConstants.physicallyBasedRendering = true;
     
     glm::mat4 model = modelMatrix(standardPushConstants.position,
                                   standardPushConstants.scale,
@@ -860,6 +861,7 @@ void Pipeline::Bind(std::string name) {
         if (a->IsInstanced()) {
             standardPushConstants.instanced = true;
         }
+        standardPushConstants.physicallyBasedRendering = true;
         
         anopol::render::Asset::Mesh mesh = a->meshes[0];
         
