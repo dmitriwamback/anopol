@@ -104,9 +104,17 @@ void main() {
 
     vec3 n = normalize(normal);
     vec3 viewDirection = normalize(cameraPosition - fragp);
+
+    float minDistance = 1.0;
+    float maxDistance = 50.0;
+    float cameraDst = length(cameraPosition - fragp);
+    float lod = (log2(cameraDst) - log2(minDistance)) / (log2(maxDistance) - log2(minDistance)) * 9;
+    lod = clamp(lod, 0.0, 9);
+
     vec3 lightDirection = normalize(lightPosition - fragp);
 
-    vec3 albedo = texture(baseTexture, uv).rgb;
+    vec4 _albedo = textureLod(baseTexture, uv, lod);
+    vec3 albedo = _albedo.rgb;
 
     if (pushConstants.object.physicallyBasedRendering == 0) {
         float ambientStrength = 0.2;
@@ -120,10 +128,10 @@ void main() {
         float spec = pow(max(dot(n, halfWay), 0.0), 8.0);
         vec3 specular = lightColor * spec;
 
-        fragc = texture(baseTexture, uv) * vec4(diff + specular + ambientColor, 1.0);
+        fragc = _albedo * vec4(diff + specular + ambientColor, 1.0);
     }
     else {
-        float mockMetallic = 1.0;
+        float mockMetallic = 0.25;
         float mockRoughness = albedo.r;
 
         vec3 F0 = vec3(0.04); 

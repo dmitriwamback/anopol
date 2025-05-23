@@ -58,7 +58,7 @@ public:
     pipeline*                       anopolMainPipeline;
     pipelineDefinitions*            anopolPipelineDefinitions;
     descriptorSets*                 anopolDescriptorSets;
-    VkDescriptorSetLayout           anopolDescriptor;
+    VkDescriptorSetLayout           anopolDescriptor, samplerDescriptorSetLayout;
     
     VkDescriptorSet                 samplerDescriptorSet;
     
@@ -455,7 +455,6 @@ void Pipeline::InitializePipeline() {
     samplerLayoutInfo.bindingCount = 1;
     samplerLayoutInfo.pBindings = &samplerLayoutBinding;
 
-    VkDescriptorSetLayout samplerDescriptorSetLayout;
     vkCreateDescriptorSetLayout(context->device, &samplerLayoutInfo, nullptr, &samplerDescriptorSetLayout);
     
     
@@ -1087,6 +1086,7 @@ void Pipeline::CleanUp() {
     
     vkDestroyDescriptorPool(context->device, anopolDescriptorSets->descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(context->device, anopolDescriptor, nullptr);
+    vkDestroyDescriptorSetLayout(context->device, samplerDescriptorSetLayout, nullptr);
     
     for (size_t i = 0; i < anopol_max_frames; i++) {
         vkDestroySemaphore(context->device, renderSemaphores[i], nullptr);

@@ -31,7 +31,7 @@ Texture Texture::LoadTexture(const char* path) {
     int width, height, channels;
     float* pixels = stbi_loadf(path, &width, &height, &channels, STBI_rgb_alpha);
     
-    VkDeviceSize imageSize = width * height * 4 * sizeof(float);
+    VkDeviceSize imageSize = uint64_t(width) * uint64_t(height) * 4 * sizeof(float);
     
     VkBuffer staging;
     VkDeviceMemory stagingMemory;
@@ -84,10 +84,6 @@ Texture Texture::LoadTexture(const char* path) {
     
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = supportedFeatures.samplerAnisotropy ? VK_TRUE : VK_FALSE;
-
-    VkDeviceCreateInfo deviceCreateInfo{};
-    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
     
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -107,20 +103,16 @@ Texture Texture::LoadTexture(const char* path) {
     
     texture.textureImageView = textureImageView;
     texture.textureImage = textureImage;
+    texture.textureImageMemory = textureImageMemory;
     
     return texture;
 }
 
 void Texture::Dealloc() {
-    if (sampler != VK_NULL_HANDLE) {
-        vkDestroySampler(context->device, sampler, nullptr);
-    }
-    if (textureImage != VK_NULL_HANDLE) {
-        vkDestroyImage(context->device, textureImage, nullptr);
-    }
-    if (textureImageMemory != VK_NULL_HANDLE) {
-        vkFreeMemory(context->device, textureImageMemory, nullptr);
-    }
+    vkDestroySampler(context->device, sampler, nullptr);
+    vkDestroyImage(context->device, textureImage, nullptr);
+    vkDestroyImageView(context->device, textureImageView, nullptr);
+    vkFreeMemory(context->device, textureImageMemory, nullptr);
 }
 
 }
