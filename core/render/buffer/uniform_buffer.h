@@ -11,12 +11,12 @@
 namespace anopol::render {
 
 struct anopolStandardUniform {
-    
     glm::mat4 projection;
     glm::mat4 lookAt;
     glm::vec3 cameraPosition;
     float t;
     float fogDst;
+    float wetnessParameter;
 };
 anopolStandardUniform asu{};
 
@@ -60,6 +60,7 @@ void UniformBuffer::Update(int currentFrame) {
     asu.projection = anopol::camera::camera.cameraProjection;
     asu.lookAt = anopol::camera::camera.cameraLookAt;
     asu.cameraPosition = anopol::camera::camera.cameraPosition;
+    asu.wetnessParameter = (sin(debugTime/5.0) + 1) * 1.365;
 
     memcpy(uniformBufferMapped[currentFrame], &asu, sizeof(asu));
     

@@ -11,7 +11,7 @@
 namespace anopol::lighting {
 
 float fogDst = 300.0f;
-
+float wetnessParameter = 1;
 
 }
 

@@ -37,6 +37,7 @@ layout (std140, binding = 2) uniform anopolStandardUniform {
     vec3 cameraPosition;
     float t;
     float fogDst;
+    float wetnessParameter;
 } ubo;
 
 layout(std140, binding = 3) readonly buffer BatchingTransformation {

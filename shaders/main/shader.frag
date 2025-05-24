@@ -24,7 +24,7 @@ layout (push_constant) uniform PushConstant {
     anopolStandardPushConstants object;
 } pushConstants;
 
-layout(set = 1, binding = 0) uniform sampler2D baseTexture;
+layout(set = 1, binding = 0) uniform sampler2D baseTextures[8];
 //layout(set = 1, binding = 1) uniform sampler2D metallic;
 //layout(set = 1, binding = 2) uniform sampler2D roughness;
 //layout(set = 1, binding = 3) uniform sampler2D normalMap;
@@ -36,11 +36,15 @@ layout (std140, binding = 2) uniform anopolStandardUniform {
     vec3 cameraPosition;
     float t;
     float fogDst;
+    float wetnessParameter;
 } ubo;
 
-vec3 lightPosition = vec3(0.0, 1000.0, 0.0);
+vec3 lightPosition = vec3(1000.0, 1000.0, 1000.0);
 vec3 lightColor = vec3(243, 165, 90)/255.0;
 vec3 color = vec3(1.0);
+
+vec3 lightPositions[] = { vec3(1000.0), vec3(-100.0, 100.0, -100.0), vec3(0.0, 100.0, 0.0), vec3(50.0, 20.0, 200.0) };
+vec3 lightColors[] = { vec3(243, 165, 90)/255.0, vec3(1.0), vec3(1.0, 0.0, 0.0), vec3(0.2, 0.4, 1.0) };
 
 vec3 fogColor = vec3(0.4, 0.7, 1.0);
 float fogdst = ubo.fogDst;
@@ -82,8 +86,39 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec3 pbrComputeLo(vec3 albedo, vec3 n, vec3 viewDirection, vec3 lightDirection, vec3 lightSource, vec3 lightColor) {
+    float mockMetallic = 0.25 * (clamp(ubo.wetnessParameter, 0.0, 2.73) + 1);
+    float mockRoughness = albedo.r;
 
+    vec3 F0 = vec3(0.04); 
+    F0 = mix(F0, albedo, mockMetallic);
 
+    vec3 Lo = vec3(0.0);
+
+    vec3 H = normalize(viewDirection + lightDirection);
+    float dst = length(lightSource - fragp);
+    float attenuation = 1.0 / (dst * dst);
+    vec3 radiance = lightColor * attenuation * 100000.0;
+
+    float NDF = DistributionGGX(n, H, mockRoughness);   
+    float G   = GeometrySmith(n, viewDirection, lightDirection, mockRoughness);      
+    vec3 F    = fresnelSchlick(max(dot(H, viewDirection), 0.0), F0);
+    
+    vec3 numerator    = NDF * G * F; 
+    float denominator = 4.0 * max(dot(n, viewDirection), 0.0) * max(dot(n, lightDirection), 0.0) + 0.0001;
+    vec3 specular = numerator / denominator;
+    
+    vec3 kS = F;
+    vec3 kD = clamp(vec3(1.0) - kS, 0.0, 1.0);
+
+    kD *= 1 - mockMetallic;	  
+
+    float NdotL = max(dot(n, lightDirection), 0.0);        
+
+    Lo += (kD * albedo / 3.14159265358 + specular) * radiance * NdotL;
+
+    return Lo;
+}
 
 vec3 applyFog(vec3 col, float distance) {
     float fogFactor = clamp(exp(-distance / fogdst), 0.0, 1.0);
@@ -113,7 +148,7 @@ void main() {
 
     vec3 lightDirection = normalize(lightPosition - fragp);
 
-    vec4 _albedo = textureLod(baseTexture, uv, lod);
+    vec4 _albedo = textureLod(baseTextures[0], uv * 2, lod);
     vec3 albedo = _albedo.rgb;
 
     if (pushConstants.object.physicallyBasedRendering == 0) {
@@ -131,44 +166,20 @@ void main() {
         fragc = _albedo * vec4(diff + specular + ambientColor, 1.0);
     }
     else {
-        float mockMetallic = 0.25;
-        float mockRoughness = albedo.r;
-
-        vec3 F0 = vec3(0.04); 
-        F0 = mix(F0, albedo, mockMetallic);
-
+        vec3 ambient = vec3(0.2) * albedo * color;
         vec3 Lo = vec3(0.0);
+        for (int i = 0; i < 4; i++) {
+            vec3 direction = normalize(lightPositions[i] - fragp);
+            Lo += pbrComputeLo(albedo, n, viewDirection, direction, lightPositions[i], lightColors[i]);
+        }
 
-        vec3 H = normalize(viewDirection + lightDirection);
-        float dst = length(lightPosition - fragp);
-        float attenuation = 1.0 / (dst * dst);
-        vec3 radiance = lightColor * attenuation * 10000000.0;
-
-        float NDF = DistributionGGX(n, H, mockRoughness);   
-        float G   = GeometrySmith(n, viewDirection, lightDirection, mockRoughness);      
-        vec3 F    = fresnelSchlick(max(dot(H, viewDirection), 0.0), F0);
-        
-        vec3 numerator    = NDF * G * F; 
-        float denominator = 4.0 * max(dot(n, viewDirection), 0.0) * max(dot(n, lightDirection), 0.0) + 0.0001;
-        vec3 specular = numerator / denominator;
-        
-        vec3 kS = F;
-        vec3 kD = clamp(vec3(1.0) - kS, 0.0, 1.0);
-
-        kD *= 1 - mockMetallic;	  
-
-        float NdotL = max(dot(n, lightDirection), 0.0);        
-
-        Lo += (kD * albedo / 3.14159265358 + specular) * radiance * NdotL;
-
-        vec3 ambient = vec3(0.2) * albedo;
-        vec3 col = ambient + Lo;
+        vec3 col = ambient + pbrComputeLo(albedo, n, viewDirection, lightDirection, lightPosition, lightColor) + Lo;
         col = col / (col + vec3(1.0));
         fragc = vec4(col, 1.0);
     }
 
 
-    float gamma = 2.1;
+    float gamma = 2.2;
     fragc.rgb = pow(fragc.rgb, vec3(1.0/gamma));
     fragc.rgb = applyFog(fragc.rgb, length(fragp - cameraPosition));
 }

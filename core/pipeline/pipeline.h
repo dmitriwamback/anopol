@@ -256,7 +256,7 @@ void Pipeline::InitializePipeline() {
     poolSizes[2].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Batching Buffer
     poolSizes[2].descriptorCount        = (uint32_t)anopol_max_frames;
     poolSizes[3].type                   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // Texture Buffer
-    poolSizes[3].descriptorCount        = (uint32_t)anopol_max_frames * 4;
+    poolSizes[3].descriptorCount        = 1024;
     
     VkDescriptorPoolCreateInfo poolCreateInfo{};
     poolCreateInfo.sType            = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -364,7 +364,7 @@ void Pipeline::InitializePipeline() {
     VkDescriptorSetLayoutBinding textureBinding{};
     textureBinding.binding                      = 4;
     textureBinding.descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    textureBinding.descriptorCount              = 1;
+    textureBinding.descriptorCount              = anopol_max_textures;
     textureBinding.stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
     textureBinding.pImmutableSamplers           = nullptr;
     
@@ -445,7 +445,7 @@ void Pipeline::InitializePipeline() {
     
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 0;
-    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorCount = anopol_max_textures;
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
@@ -472,14 +472,21 @@ void Pipeline::InitializePipeline() {
     samplerImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     samplerImageInfo.imageView   = texture.textureImageView;
     samplerImageInfo.sampler     = texture.sampler;
+    
+    std::vector<VkDescriptorImageInfo> imageInfos(anopol_max_textures);
+    for (uint32_t i = 0; i < anopol_max_textures; ++i) {
+        imageInfos[i].sampler = texture.sampler;
+        imageInfos[i].imageView = texture.textureImageView;
+        imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
 
     VkWriteDescriptorSet samplerWrite{};
     samplerWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     samplerWrite.dstSet          = samplerDescriptorSet;
     samplerWrite.dstBinding      = 0;
     samplerWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerWrite.descriptorCount = 1;
-    samplerWrite.pImageInfo      = &samplerImageInfo;
+    samplerWrite.descriptorCount = anopol_max_textures;
+    samplerWrite.pImageInfo      = imageInfos.data();
 
     vkUpdateDescriptorSets(context->device, 1, &samplerWrite, 0, nullptr);
     
