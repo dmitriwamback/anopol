@@ -148,7 +148,7 @@ void main() {
 
     vec3 lightDirection = normalize(lightPosition - fragp);
 
-    vec4 _albedo = textureLod(baseTextures[0], uv * 2, lod);
+    vec4 _albedo = textureLod(baseTextures[0], uv * 2, lod) * vec4(color, 1.0);
     vec3 albedo = _albedo.rgb;
 
     if (pushConstants.object.physicallyBasedRendering == 0) {
@@ -166,7 +166,7 @@ void main() {
         fragc = _albedo * vec4(diff + specular + ambientColor, 1.0);
     }
     else {
-        vec3 ambient = vec3(0.2) * albedo * color;
+        vec3 ambient = vec3(0.2) * albedo;
         vec3 Lo = vec3(0.0);
         for (int i = 0; i < 4; i++) {
             vec3 direction = normalize(lightPositions[i] - fragp);

@@ -43,12 +43,14 @@ public:
     void Dealloc();
     void Combine(int currentFrame);
     void UpdateTransforms(batchFrame& frame);
+    void Cull();
     batchFrame GetBatchFrame(int frame);
 private:
     
     batchFrame frames[anopol_max_frames];
-    bool vertexBufferAllocated, indexBufferAllocated, framesAllocated;
-    int processed;
+    bool    vertexBufferAllocated, indexBufferAllocated, framesAllocated;
+    int     processed;
+    size_t  uploadedTransformCount = 0;
     void allocateFrame(int frameidx);
 };
 
@@ -89,11 +91,6 @@ void Batch::Append(std::vector<anopol::render::Asset*> assets) {
 
 void Batch::Combine(int currentFrame = -1) {
     
-    batchVertices.clear();
-    batchIndices.clear();
-    drawInformation.clear();
-    transformations.clear();
-    
     VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -101,9 +98,22 @@ void Batch::Combine(int currentFrame = -1) {
         anopol_assert("Failed to create fence");
     }
         
-    uint32_t vertexOffset = 0, indexOffset = 0, object = 0;
+    uint32_t vertexOffset = 0, indexOffset = 0;
+    size_t previousProcessed = processed;
+    size_t currentCount = meshCombineGroup.renderables.size();
     
-    for (anopol::render::Renderable* renderable : meshCombineGroup.renderables) {
+    glm::mat4 viewProjection = anopol::camera::camera.cameraProjection * anopol::camera::camera.cameraLookAt;
+    anopol::camera::Frustum frustum = anopol::camera::CreateFrustumPlanes(viewProjection);
+    
+    for (size_t i = previousProcessed; i < currentCount; i++) {
+        
+        anopol::render::Renderable* renderable = meshCombineGroup.renderables[i];
+        
+        float radius = renderable->ComputeBoundingSphereRadius() * glm::compMax(renderable->scale);
+        
+        if (!anopol::camera::isSphereInFrustum(renderable->position, radius, frustum)) {
+            continue;
+        }
         
         batchDrawInformation drawInfo;
         
@@ -113,20 +123,20 @@ void Batch::Combine(int currentFrame = -1) {
         });
         
         if (renderable->isIndexed == false || renderable->indexBuffer.bufferSize == VkDeviceSize(0)) {
-            drawInfo.drawType = nonIndexed;
-            drawInfo.firstVertex = vertexOffset;
-            drawInfo.vertexCount = static_cast<uint32_t>(renderable->vertices.size());
-            drawInfo.object = object++;
+            drawInfo.drawType       = nonIndexed;
+            drawInfo.firstVertex    = vertexOffset;
+            drawInfo.vertexCount    = static_cast<uint32_t>(renderable->vertices.size());
+            drawInfo.object         = static_cast<uint32_t>(i);
         }
         else {
             drawInfo.drawType = indexed;
             for (uint32_t index : renderable->indices) {
                 batchIndices.push_back(index + vertexOffset);
             }
-            drawInfo.firstIndex = indexOffset;
-            drawInfo.indexCount = static_cast<uint32_t>(renderable->indices.size());
-            drawInfo.vertexOffset = vertexOffset;
-            drawInfo.object = object++;
+            drawInfo.firstIndex     = indexOffset;
+            drawInfo.indexCount     = static_cast<uint32_t>(renderable->indices.size());
+            drawInfo.vertexOffset   = vertexOffset;
+            drawInfo.object         = static_cast<uint32_t>(i);
             
             indexOffset += renderable->indices.size();
         }
@@ -143,7 +153,7 @@ void Batch::Combine(int currentFrame = -1) {
         batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
 #endif
     }
-    processed = meshCombineGroup.renderables.size()-1;
+    processed = meshCombineGroup.renderables.size();
     /*
     for (anopol::render::Asset* asset : meshCombineGroup.assets) {
         for (anopol::render::Asset::Mesh mesh : asset->meshes) {
@@ -279,16 +289,7 @@ void Batch::UpdateTransforms(batchFrame& frame) {
                                  frame.transformBufferMemory);
         frame.allocatedTransformations = true;
     }
-    else {
-        transformations.clear();
-        for (anopol::render::Renderable* renderable : meshCombineGroup.renderables) {
-            transformations.push_back({
-                modelMatrix(renderable->position, renderable->scale, renderable->rotation),
-                glm::vec4(renderable->color, 1.0f)
-            });
-        }
-    }
-    
+
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     
@@ -341,6 +342,10 @@ void Batch::Dealloc() {
         vkDestroyBuffer(context->device, frames[i].transformBuffer, nullptr);
         vkFreeMemory(context->device, frames[i].transformBufferMemory, nullptr);
     }
+}
+
+void Batch::Cull() {
+    
 }
 
 }

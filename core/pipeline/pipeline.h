@@ -23,16 +23,6 @@ public:
     };
     
     //------------------------------------------------------------------------------------------//
-    // Shadows
-    //------------------------------------------------------------------------------------------//
-    
-    anopol::structs::shadow shadowPipelines;
-    anopol::structs::shadowImage shadowDepthImage;
-    anopol::structs::shadowPushConstants shadowPushConstantsBlock;
-    
-    std::array<anopol::structs::shadowCascade, anopol_max_cascades> cascades;
-    
-    //------------------------------------------------------------------------------------------//
     // Bloom
     //------------------------------------------------------------------------------------------//
     
@@ -68,7 +58,7 @@ public:
     std::vector<anopol::render::Asset*>         assets = std::vector<anopol::render::Asset*>();
     
     anopol::batch::Batch testBatch;
-    anopol::render::texture::Texture texture;
+    anopol::render::texture::Texture texture, texture2;
     
     //------------------------------------------------------------------------------------------//
     // Methods
@@ -85,7 +75,7 @@ public:
 private:
     
     VkShaderModule vert, frag;
-    bool isEDown = false;
+    bool isLeftMouseButtonDown = false;
     
     anopol::render::OffscreenRendering offscreen;
     
@@ -221,11 +211,11 @@ void Pipeline::InitializePipeline() {
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
     testBatch.Combine();
     
-    for (int i = 0; i < 1050; i++) {
-        for (int j = 0; j < 1050; j++) {
+    for (int i = 0; i < 500; i++) {
+        for (int j = 0; j < 500; j++) {
             
-            float x = (i - 1050 / 2) * 2.0f;
-            float z = (j - 1050 / 2) * 2.0f;
+            float x = (i - 500 / 2) * 2.0f;
+            float z = (j - 500 / 2) * 2.0f;
             
             float y = floor(math::overlapNoise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 0.4, 1.8, 10, 1039.3f * 10.0f));
                         
@@ -235,6 +225,7 @@ void Pipeline::InitializePipeline() {
     testAsset->AllocInstances();
     
     texture = anopol::render::texture::Texture::LoadTexture("/Users/dmitriwamback/Documents/Projects/anopol/anopol/textures/wall.jpg");
+    texture2 = anopol::render::texture::Texture::LoadTexture("/Users/dmitriwamback/Documents/Projects/anopol/anopol/textures/diamondplate.jpg");
     
     assets.push_back(testAsset);
     
@@ -479,6 +470,8 @@ void Pipeline::InitializePipeline() {
         imageInfos[i].imageView = texture.textureImageView;
         imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
+    imageInfos[1].sampler = texture2.sampler;
+    imageInfos[1].imageView = texture2.textureImageView;
 
     VkWriteDescriptorSet samplerWrite{};
     samplerWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -791,22 +784,20 @@ void Pipeline::Bind(std::string name) {
         if (glm::length(totalPush) > 2.0f) break;
     }
     anopol::camera::camera.updateLookAt();
-    
-    if (glfwGetKey(context->window, GLFW_KEY_E) && !isEDown) {
         
+    if (glfwGetMouseButton(context->window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !isLeftMouseButtonDown) {
         anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
-        renderable->position = anopol::camera::camera.cameraPosition - glm::vec3(0.0f, 2.0f, 0.0f);
+        renderable->position = anopol::camera::camera.cameraPosition + anopol::camera::camera.mouseRay*14.0f;
         renderable->scale    = glm::vec3(5.0f, 5.0f, 5.0f);
         renderable->rotation = glm::vec3(rand()%360);
         renderable->color    = glm::vec3(rand()%255/255.0f);
                     
         testBatch.Append(renderable);
         testBatch.Combine();
-        isEDown = true;
+        isLeftMouseButtonDown = true;
     }
-    
-    if (glfwGetKey(context->window, GLFW_KEY_E) == GLFW_RELEASE && isEDown) {
-        isEDown = false;
+    if (glfwGetMouseButton(context->window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE && isLeftMouseButtonDown) {
+        isLeftMouseButtonDown = false;
     }
         
     uniformBufferMemory.Update(currentFrame);
@@ -944,105 +935,6 @@ void Pipeline::Bind(std::string name) {
 
 void Pipeline::InitializeShadowDepthPass() {
     
-    //------------------------------------------------------------------------------------------//
-    // Creating Shadow Cascades
-    //------------------------------------------------------------------------------------------//
-    
-    VkFormat depth = anopol::ll::findDepthFormat();
-    
-    VkAttachmentDescription depthAttachment{};
-    depthAttachment.format          = depth;
-    depthAttachment.samples         = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp          = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp         = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.stencilLoadOp   = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp  = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachment.finalLayout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-    
-    VkAttachmentReference depthAttachmentReference{};
-    depthAttachmentReference.attachment    = 0;
-    depthAttachmentReference.layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    
-    VkSubpassDescription depthSubpass{};
-    depthSubpass.pipelineBindPoint          = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    depthSubpass.colorAttachmentCount       = 0;
-    depthSubpass.pDepthStencilAttachment    = &depthAttachmentReference;
-    
-    std::array<VkSubpassDependency, 2> subpassDependencies;
-    
-    subpassDependencies[0].srcSubpass       = VK_SUBPASS_EXTERNAL;
-    subpassDependencies[0].dstSubpass       = 0;
-    subpassDependencies[0].srcStageMask     = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    subpassDependencies[0].dstStageMask     = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    subpassDependencies[0].srcAccessMask    = VK_ACCESS_SHADER_READ_BIT;
-    subpassDependencies[0].dstAccessMask    = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    subpassDependencies[0].dependencyFlags  = VK_DEPENDENCY_BY_REGION_BIT;
-    
-    subpassDependencies[1].srcSubpass       = 0;
-    subpassDependencies[1].dstSubpass       = VK_SUBPASS_EXTERNAL;
-    subpassDependencies[1].srcStageMask     = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    subpassDependencies[1].dstStageMask     = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    subpassDependencies[1].srcAccessMask    = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    subpassDependencies[1].dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
-    subpassDependencies[1].dependencyFlags  = VK_DEPENDENCY_BY_REGION_BIT;
-    
-    VkRenderPassCreateInfo renderpassCreateInfo{};
-    renderpassCreateInfo.sType            = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderpassCreateInfo.attachmentCount  = 1;
-    renderpassCreateInfo.pAttachments     = &depthAttachment;
-    renderpassCreateInfo.subpassCount     = 1;
-    renderpassCreateInfo.pSubpasses       = &depthSubpass;
-    renderpassCreateInfo.dependencyCount  = static_cast<uint32_t>(subpassDependencies.size());
-    renderpassCreateInfo.pDependencies    = subpassDependencies.data();
-    
-    if (vkCreateRenderPass(context->device, &renderpassCreateInfo, nullptr, &shadowPipelines.shadowRenderPass) != VK_SUCCESS) {
-        anopol_assert("Failed to create shadow depth renderpass");
-    }
-    
-    anopol::ll::createImage(4096,
-                            4096,
-                            depth,
-                            VK_IMAGE_TILING_OPTIMAL,
-                            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                            shadowDepthImage.shadowImage, shadowDepthImage.mem, anopol_max_cascades);
-    
-    shadowDepthImage.shadowImageView = anopol::ll::createImageView(shadowDepthImage.shadowImage, depth, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D_ARRAY, anopol_max_cascades, 0);
-    
-    for (uint32_t i = 0; i < anopol_max_cascades; i++) {
-        cascades[i].cascadeImageView = anopol::ll::createImageView(shadowDepthImage.shadowImage, depth, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_VIEW_TYPE_2D_ARRAY, 1, i);
-        
-        VkFramebufferCreateInfo framebufferCreateInfo{};
-        framebufferCreateInfo.sType             = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferCreateInfo.renderPass        = shadowPipelines.shadowRenderPass;
-        framebufferCreateInfo.attachmentCount   = 1;
-        framebufferCreateInfo.pAttachments      = &cascades[i].cascadeImageView;
-        framebufferCreateInfo.width             = 4096;
-        framebufferCreateInfo.height            = 4096;
-        framebufferCreateInfo.layers            = 1;
-        
-        if (vkCreateFramebuffer(context->device, &framebufferCreateInfo, nullptr, &cascades[i].framebuffer) != VK_SUCCESS) {
-            anopol_assert("Failed to create CSM framebuffer");
-        }
-    }
-    
-    VkSamplerCreateInfo samplerCreateInfo{};
-    samplerCreateInfo.sType         = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerCreateInfo.magFilter     = VK_FILTER_LINEAR;
-    samplerCreateInfo.minFilter     = VK_FILTER_LINEAR;
-    samplerCreateInfo.mipmapMode    = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerCreateInfo.addressModeU  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeV  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeW  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.mipLodBias    = 0.0f;
-    samplerCreateInfo.maxAnisotropy = 1.0f;
-    samplerCreateInfo.minLod        = 0.0f;
-    samplerCreateInfo.maxLod        = 1.0f;
-    samplerCreateInfo.borderColor   = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    if (vkCreateSampler(context->device, &samplerCreateInfo, nullptr, &shadowDepthImage.sampler) != VK_SUCCESS) {
-        anopol_assert("Failed to create shadow sampler");
-    }
 }
 
 void Pipeline::RenderScene(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascade = 0) {
@@ -1057,11 +949,6 @@ void Pipeline::CleanUp() {
     
     for (VkFramebuffer framebuffer : framebuffers) {
         vkDestroyFramebuffer(context->device, framebuffer, nullptr);
-    }
-    
-    for (anopol::structs::shadowCascade cascade : cascades) {
-        vkDestroyFramebuffer(context->device, cascade.framebuffer, nullptr);
-        vkDestroyImageView(context->device, cascade.cascadeImageView, nullptr);
     }
     
     anopol::ll::freeSwapchain();
@@ -1090,6 +977,7 @@ void Pipeline::CleanUp() {
     }
     uniformBufferMemory.dealloc();
     texture.Dealloc();
+    texture2.Dealloc();
     
     vkDestroyDescriptorPool(context->device, anopolDescriptorSets->descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(context->device, anopolDescriptor, nullptr);
@@ -1100,12 +988,6 @@ void Pipeline::CleanUp() {
         vkDestroySemaphore(context->device, imageSemaphores[i], nullptr);
         vkDestroyFence(context->device, inFlightFences[i], nullptr);
     }
-    
-    vkDestroyImageView(context->device, shadowDepthImage.shadowImageView, nullptr);
-    vkDestroyImage(context->device, shadowDepthImage.shadowImage, nullptr);
-    vkFreeMemory(context->device, shadowDepthImage.mem, nullptr);
-    vkDestroySampler(context->device, shadowDepthImage.sampler, nullptr);
-    vkDestroyRenderPass(context->device, shadowPipelines.shadowRenderPass, nullptr);
     
     free(anopolPipelineDefinitions);
     free(anopolMainPipeline);

@@ -12,6 +12,12 @@ namespace anopol::pipeline {
 
 class ShadowPipeline {
     
+    anopol::structs::shadow shadowPipelines;
+    anopol::structs::shadowImage shadowDepthImage;
+    anopol::structs::shadowPushConstants shadowPushConstantsBlock;
+    
+    std::array<anopol::structs::shadowCascade, anopol_max_cascades> cascades;
+    
 };
 
 }
