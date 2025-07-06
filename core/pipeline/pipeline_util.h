@@ -31,11 +31,6 @@ struct pipelineDefinitions {
     uint32_t imageIndex;
 };
 
-struct descriptorSets {
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
-};
-
 }
 
 #endif /* pipeline_util_h */

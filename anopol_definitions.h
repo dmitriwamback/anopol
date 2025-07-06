@@ -72,6 +72,11 @@ struct swapchainDetails {
     std::vector<VkPresentModeKHR>   presentModes;
 };
 
+struct descriptorSets {
+    VkDescriptorPool descriptorPool;
+    std::vector<VkDescriptorSet> descriptorSets;
+};
+
 struct queueFamily {
     std::optional<uint32_t> graphicsFamily,
                             presentQueue;
@@ -177,7 +182,7 @@ glm::mat4 modelMatrix(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) {
                                    glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0, 1, 0)) *
                                    glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0, 0, 1));
     
-    return translationMatrix * rotationMatrix * scaleMatrix;
+    return translationMatrix * scaleMatrix * rotationMatrix;
 }
 
 }

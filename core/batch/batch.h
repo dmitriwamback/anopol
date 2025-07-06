@@ -16,14 +16,18 @@ namespace anopol::batch {
 class Batch {
 public:
     struct batchFrame {
-        VkBuffer drawCommandBuffer;
-        VkDeviceMemory drawCommandBufferMemory;
+        VkBuffer        drawCommandBuffer;
+        VkDeviceMemory  drawCommandBufferMemory;
+        VkDeviceSize    drawCommandBufferSize = 0;
 
-        VkBuffer transformBuffer;
-        VkDeviceMemory transformBufferMemory;
-        
-        bool allocatedTransformations;
-        bool allocatedDrawCommands;
+        VkBuffer        transformBuffer;
+        VkDeviceMemory  transformBufferMemory;
+        VkDeviceSize    transformBufferSize = 0;
+
+        bool allocatedTransformations = false;
+        bool allocatedDrawCommands = false;
+        bool empty = true;
+        uint32_t idx;
     };
     
     std::vector<anopol::render::Vertex> batchVertices;
@@ -42,13 +46,14 @@ public:
     void Append(std::vector<anopol::render::Asset*> assets);
     void Dealloc();
     void Combine(int currentFrame);
-    void UpdateTransforms(batchFrame& frame);
+    void UpdateTransforms(batchFrame& frame, uint32_t idx);
     void Cull();
     batchFrame GetBatchFrame(int frame);
 private:
     
     batchFrame frames[anopol_max_frames];
     bool    vertexBufferAllocated, indexBufferAllocated, framesAllocated;
+    bool    everyObjectCulled = false;
     int     processed;
     size_t  uploadedTransformCount = 0;
     void allocateFrame(int frameidx);
@@ -102,17 +107,21 @@ void Batch::Combine(int currentFrame = -1) {
     size_t previousProcessed = processed;
     size_t currentCount = meshCombineGroup.renderables.size();
     
-    glm::mat4 viewProjection = anopol::camera::camera.cameraProjection * anopol::camera::camera.cameraLookAt;
-    anopol::camera::Frustum frustum = anopol::camera::CreateFrustumPlanes(viewProjection);
+    bool isInFrustum = true;
+    int culledAmount = 0;
+    
+    anopol::camera::Frustum frustum = anopol::camera::CreateFrustumPlanes(anopol::camera::camera);
     
     for (size_t i = previousProcessed; i < currentCount; i++) {
         
         anopol::render::Renderable* renderable = meshCombineGroup.renderables[i];
         
-        float radius = renderable->ComputeBoundingSphereRadius() * glm::compMax(renderable->scale);
+        float radius = renderable->ComputeBoundingSphereRadius();
         
-        if (!anopol::camera::isSphereInFrustum(renderable->position, radius, frustum)) {
-            continue;
+        glm::mat4 model = anopol::modelMatrix(renderable->position, renderable->scale, renderable->rotation);
+        
+        if (!anopol::camera::isSphereInFrustum(renderable->position, renderable->scale, model, radius, frustum)) {
+            //continue;
         }
         
         batchDrawInformation drawInfo;
@@ -153,6 +162,9 @@ void Batch::Combine(int currentFrame = -1) {
         batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
 #endif
     }
+    
+    if (!isInFrustum) return;
+    
     processed = meshCombineGroup.renderables.size();
     /*
     for (anopol::render::Asset* asset : meshCombineGroup.assets) {
@@ -171,7 +183,8 @@ void Batch::Combine(int currentFrame = -1) {
     //------------------------------------------------------------------------------------------//
     // Allocating Vertex Buffer
     //------------------------------------------------------------------------------------------//
-        
+    
+    if (culledAmount == meshCombineGroup.renderables.size()) return;
     vertexBuffer.alloc(batchVertices);
     
     if (batchIndices.size() > 0 && !indexBufferAllocated) {
@@ -199,57 +212,74 @@ void Batch::Combine(int currentFrame = -1) {
 
 void Batch::allocateFrame(int frameidx) {
     batchFrame& frame = frames[frameidx];
-    
+
     std::vector<VkDrawIndirectCommand> drawCommands;
-    
+
+    if (drawInformation.empty() || transformations.empty()) {
+        frame.empty = true;
+        return;
+    }
+    frame.empty = false;
+
     for (anopol::batch::batchDrawInformation drawInfo : drawInformation) {
-        
         VkDrawIndirectCommand command{};
         command.vertexCount = drawInfo.vertexCount;
         command.instanceCount = 1;
         command.firstVertex = drawInfo.firstVertex;
         command.firstInstance = drawInfo.object;
-        
         drawCommands.push_back(command);
     }
-    
-    VkDeviceSize bufferSize = sizeof(VkDrawIndirectCommand) * max_batch_draw_indirect_size;
-    
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = bufferSize;
-    bufferInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    
-    if (!frame.allocatedDrawCommands) {
+
+    VkDeviceSize bufferSize = sizeof(VkDrawIndirectCommand) * drawCommands.size();
+    if (bufferSize == 0) {
+        frame.empty = true;
+        return;
+    }
+
+    if (!frame.allocatedDrawCommands || bufferSize > frame.drawCommandBufferSize) {
+        // Clean up old buffer
+        if (frame.allocatedDrawCommands) {
+            vkDestroyBuffer(context->device, frame.drawCommandBuffer, nullptr);
+            vkFreeMemory(context->device, frame.drawCommandBufferMemory, nullptr);
+        }
+
+        // Create new buffer
+        VkBufferCreateInfo bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = bufferSize;
+        bufferInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
         vkCreateBuffer(context->device, &bufferInfo, nullptr, &frame.drawCommandBuffer);
-        
+
         VkMemoryRequirements memRequirements;
         vkGetBufferMemoryRequirements(context->device, frame.drawCommandBuffer, &memRequirements);
-        
+
         VkMemoryAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = anopol::ll::findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        
+
         vkAllocateMemory(context->device, &allocInfo, nullptr, &frame.drawCommandBufferMemory);
         vkBindBufferMemory(context->device, frame.drawCommandBuffer, frame.drawCommandBufferMemory, 0);
+
+        frame.drawCommandBufferSize = bufferSize;
         frame.allocatedDrawCommands = true;
     }
-    
+
     VkBuffer staging;
     VkDeviceMemory stagingMemory;
-    
+
     anopol::ll::createBuffer(bufferSize,
                              VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                              staging, stagingMemory);
-    
+
     void* data;
     vkMapMemory(context->device, stagingMemory, 0, bufferSize, 0, &data);
-    memcpy(data, drawCommands.data(), (size_t) bufferSize);
+    memcpy(data, drawCommands.data(), bufferSize);
     vkUnmapMemory(context->device, stagingMemory);
-    
+
     VkFence fence;
     VkFenceCreateInfo fenceCreateInfo{};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -262,25 +292,20 @@ void Batch::allocateFrame(int frameidx) {
     vkCmdCopyBuffer(commandBuffer, staging, frame.drawCommandBuffer, 1, &copyRegion);
 
     anopol::ll::endSingleCommandBuffer(commandBuffer, fence);
-
     vkWaitForFences(context->device, 1, &fence, VK_TRUE, UINT64_MAX);
 
     vkDestroyBuffer(context->device, staging, nullptr);
     vkFreeMemory(context->device, stagingMemory, nullptr);
-
     vkDestroyFence(context->device, fence, nullptr);
-    
-    //------------------------------------------------------------------------------------------//
-    // Allocating transformations
-    //------------------------------------------------------------------------------------------//
-    UpdateTransforms(frame);
+
+    UpdateTransforms(frame, frameidx);
 }
 
 
-void Batch::UpdateTransforms(batchFrame& frame) {
+void Batch::UpdateTransforms(batchFrame& frame, uint32_t idx) {
     
     VkDeviceSize bufferSize = sizeof(batchIndirectTransformation) * max_batch_indirect_transform_size;
-    
+        
     if (!frame.allocatedTransformations) {
         anopol::ll::createBuffer(bufferSize,
                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -345,8 +370,56 @@ void Batch::Dealloc() {
 }
 
 void Batch::Cull() {
-    
+    drawInformation.clear();
+    transformations.clear();
+
+    uint32_t vertexOffset = 0, indexOffset = 0;
+
+    anopol::camera::Frustum frustum = anopol::camera::CreateFrustumPlanes(anopol::camera::camera);
+
+    for (size_t i = 0; i < meshCombineGroup.renderables.size(); i++) {
+        anopol::render::Renderable* renderable = meshCombineGroup.renderables[i];
+
+        float radius = renderable->ComputeBoundingSphereRadius();
+        glm::mat4 model = anopol::modelMatrix(renderable->position, renderable->scale, renderable->rotation);
+
+        if (!anopol::camera::isSphereInFrustum(renderable->position, renderable->scale, model, radius, frustum)) {
+            continue;
+        }
+
+        batchDrawInformation drawInfo;
+        transformations.push_back({
+            model,
+            glm::vec4(renderable->color, 1.0f)
+        });
+
+        if (!renderable->isIndexed || renderable->indexBuffer.bufferSize == 0) {
+            drawInfo.drawType = nonIndexed;
+            drawInfo.firstVertex = vertexOffset;
+            drawInfo.vertexCount = static_cast<uint32_t>(renderable->vertices.size());
+            drawInfo.object = static_cast<uint32_t>(i);
+        }
+        else {
+            drawInfo.drawType = indexed;
+            for (uint32_t index : renderable->indices) {
+                batchIndices.push_back(index + vertexOffset);
+            }
+            drawInfo.firstIndex = indexOffset;
+            drawInfo.indexCount = static_cast<uint32_t>(renderable->indices.size());
+            drawInfo.vertexOffset = vertexOffset;
+            drawInfo.object = static_cast<uint32_t>(i);
+            indexOffset += renderable->indices.size();
+        }
+
+        drawInformation.push_back(drawInfo);
+        vertexOffset += renderable->vertices.size();
+    }
+
+    for (int i = 0; i < anopol_max_frames; ++i) {
+        allocateFrame(i);
+    }
 }
+
 
 }
 

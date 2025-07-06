@@ -27,12 +27,16 @@ public:
         0.0f,  golden_ratio, -inverse_golden_ratio,   0.0f, -golden_ratio, -inverse_golden_ratio
     };
     
-    glm::vec3 cameraPosition, lookDirection, mouseRay, velocity;
+    glm::vec3 cameraPosition, lookDirection, mouseRay, velocity, right;
     glm::mat4 cameraProjection, cameraLookAt;
     
     float pitch;
     float yaw = 3.0f * 3.141592653f/2.0f;
     float speed = 25.0f;
+    float aspect = 1.0f;
+    float fov = 3.14159265358f/2.0f;
+    float near;
+    float far;
     
     float lastMouseX;
     float lastMouseY;
@@ -59,9 +63,17 @@ void Camera::initialize() {
     camera.cameraPosition  = glm::vec3(0.0f, 6.0f, 4.0f);
     camera.lookDirection   = glm::vec3(0.0f, 0.0f, -1.0f);
     camera.velocity        = glm::vec3(0.0f, 0.0f, 0.0f);
+    camera.fov             = 3.14159265358f/2.0f;
+    camera.near            = 0.1f;
+    camera.far             = 1000.0f;
     
-    camera.cameraProjection = glm::perspective(3.14159265358f/2.0f, 3.0f/2.0f, 0.01f, 1000.0f);
+    int width, height;
+    glfwGetWindowSize(context->window, &width, &height);
+    camera.aspect = (float)width/(float)height;
+    
+    camera.cameraProjection = glm::perspective(camera.fov, camera.aspect, camera.near, camera.far);
     camera.cameraProjection[1][1] *= -1;
+    camera.right = glm::normalize(glm::cross(camera.lookDirection, glm::vec3(0.0f, 1.0f, 0.0f)));
 }
 
 void Camera::update(glm::vec4 movement) {
@@ -78,6 +90,7 @@ void Camera::update(glm::vec4 movement) {
         float right     = movement.w;
         
         glm::vec3 motion = lookDirection;
+        this->right = glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0)));
         
         glm::vec3 totalMotion = motion * (forward + backward) - glm::normalize(glm::cross(motion, glm::vec3(0.0, 1.0, 0.0))) * (left + right);
         glm::vec3 normalizedMotion = glm::vec3(0.0f);
@@ -96,9 +109,9 @@ void Camera::update(glm::vec4 movement) {
         
         int width, height;
         glfwGetWindowSize(context->window, &width, &height);
-        float aspect = (float)width/(float)height;
+        aspect = (float)width/(float)height;
         
-        cameraProjection = glm::perspective(3.14159265358f/2.0f, aspect, 0.1f, 1000.0f);
+        cameraProjection = glm::perspective(fov, aspect, near, far);
         camera.cameraProjection[1][1] *= -1;
         
         velocity = totalMotion * speed * deltaTime;

@@ -10,41 +10,68 @@
 
 namespace anopol::camera {
 
-struct Frustum {
-    glm::vec4 planes[6];
+struct Plane {
+    glm::vec3 normal = glm::vec3(0.0f, 1.0f, 0.0f);
+    float distance = 0.0f;
+    
+    float getSignedDistanceToPlane(const glm::vec3& point) const {
+        return glm::dot(normal, point) - distance;
+    }
+    
+    Plane() = default;
+    
+    Plane(const glm::vec3& p1, const glm::vec3& norm) : normal(glm::normalize(norm)), distance(glm::dot(normal, p1)) {}
 };
 
-Frustum CreateFrustumPlanes(const glm::mat4& viewProjection) {
-    Frustum frustum{};
-    const glm::mat4& m = viewProjection;
+struct Frustum {
+    Plane top, bottom,
+          left, right,
+          far, near;
+};
+struct Sphere {
+    glm::vec3 position = glm::vec3(0.f, 0.f, 0.f);
+    float radius = 0.0f;
     
-    glm::vec4 rowX = glm::vec4(viewProjection[0][0], viewProjection[0][1], viewProjection[0][2], viewProjection[0][3]); // row 0
-    glm::vec4 rowY = glm::vec4(viewProjection[1][0], viewProjection[1][1], viewProjection[1][2], viewProjection[1][3]); // row 1
-    glm::vec4 rowZ = glm::vec4(viewProjection[2][0], viewProjection[2][1], viewProjection[2][2], viewProjection[2][3]); // row 2
-    glm::vec4 rowW = glm::vec4(viewProjection[3][0], viewProjection[3][1], viewProjection[3][2], viewProjection[3][3]); // row 3
-
-    frustum.planes[0] = rowW + rowX; // Left
-    frustum.planes[1] = rowW - rowX; // Right
-    frustum.planes[2] = rowW - rowY; // Top
-    frustum.planes[3] = rowW + rowY; // Bottom
-    frustum.planes[4] = rowW + rowZ; // Near
-    frustum.planes[5] = rowW - rowZ; // Far
-
-    for (int i = 0; i < 6; ++i) {
-        float length = glm::length(glm::vec3(frustum.planes[i]));
-        frustum.planes[i] /= length;
+    Sphere(const glm::vec3& inCenter, float inRadius) : position{ inCenter }, radius{ inRadius } {}
+    
+    bool isOnOrForwardPlane(const Plane& plane) const {
+        return plane.getSignedDistanceToPlane(position) >= -radius;
     }
+};
+
+Frustum CreateFrustumPlanes(Camera camera) {
+    Frustum frustum;
+    
+    float zNear = camera.near;
+    float zFar = camera.far;
+
+    const float halfVSide = zFar * tanf(camera.fov * 0.5f);
+    const float halfHSide = halfVSide * camera.aspect;
+    const glm::vec3 front = zFar * camera.lookDirection;
+    
+    glm::vec3 up = glm::normalize(glm::cross(camera.right, camera.lookDirection));
+
+    frustum.near    = { camera.cameraPosition + zNear * camera.lookDirection, camera.lookDirection };
+    frustum.far     = { camera.cameraPosition + front, -camera.lookDirection };
+    frustum.right   = { camera.cameraPosition, glm::cross(front - camera.right * halfHSide, up) };
+    frustum.left    = { camera.cameraPosition, glm::cross(up, front + camera.right * halfHSide) };
+    frustum.top     = { camera.cameraPosition, glm::cross(camera.right, front - up * halfVSide) };
+    frustum.bottom  = { camera.cameraPosition, glm::cross(front + up * halfVSide, camera.right) };
+
     return frustum;
 }
 
-bool isSphereInFrustum(glm::vec3 position, float radius, const Frustum& frustum) {
-    for (int i = 0; i < 6; ++i) {
-        const glm::vec4& plane = frustum.planes[i];
-        float distance = glm::dot(glm::vec3(plane), position) + plane.w;
-        if (distance < -radius)
-            return false;
-    }
-    return true;
+bool isSphereInFrustum(glm::vec3 position, glm::vec3 scale, glm::mat4 model, float radius, const Frustum& frustum) {
+    
+    const glm::vec3 globalCenter = glm::vec3(model[3]);
+    Sphere globalSphere(globalCenter, radius);
+    
+    return (globalSphere.isOnOrForwardPlane(frustum.left) &&
+            globalSphere.isOnOrForwardPlane(frustum.right) &&
+            globalSphere.isOnOrForwardPlane(frustum.far) &&
+            globalSphere.isOnOrForwardPlane(frustum.near) &&
+            globalSphere.isOnOrForwardPlane(frustum.top) &&
+            globalSphere.isOnOrForwardPlane(frustum.bottom));
 }
 
 }

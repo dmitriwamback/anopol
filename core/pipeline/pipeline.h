@@ -47,8 +47,7 @@ public:
     
     pipeline*                       anopolMainPipeline;
     pipelineDefinitions*            anopolPipelineDefinitions;
-    descriptorSets*                 anopolDescriptorSets;
-    VkDescriptorSetLayout           anopolDescriptor, samplerDescriptorSetLayout;
+    VkDescriptorSetLayout           samplerDescriptorSetLayout;
     
     VkDescriptorSet                 samplerDescriptorSet;
     
@@ -117,7 +116,6 @@ Pipeline Pipeline::CreatePipeline(std::string shaderFolder) {
 
     pipeline.anopolMainPipeline         = static_cast<struct pipeline*>(malloc(1 * sizeof(struct pipeline)));
     pipeline.anopolPipelineDefinitions  = static_cast<pipelineDefinitions*>(malloc(1 * sizeof(pipelineDefinitions)));
-    pipeline.anopolDescriptorSets       = static_cast<descriptorSets*>(malloc(1 * sizeof(descriptorSets)));
     
     pipeline.InitializePipeline();
     pipeline.CreateCommandBuffers();
@@ -238,25 +236,6 @@ void Pipeline::InitializePipeline() {
     instanceBuffer->alloc(1000000);
     instanceBuffer->appendInstance(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f));
     
-    std::array<VkDescriptorPoolSize, 4> poolSizes{};
-    
-    poolSizes[0].type                   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // Uniform Buffer
-    poolSizes[0].descriptorCount        = (uint32_t)anopol_max_frames;
-    poolSizes[1].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Instance Buffer
-    poolSizes[1].descriptorCount        = (uint32_t)anopol_max_frames;
-    poolSizes[2].type                   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // Batching Buffer
-    poolSizes[2].descriptorCount        = (uint32_t)anopol_max_frames;
-    poolSizes[3].type                   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // Texture Buffer
-    poolSizes[3].descriptorCount        = 1024;
-    
-    VkDescriptorPoolCreateInfo poolCreateInfo{};
-    poolCreateInfo.sType            = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolCreateInfo.poolSizeCount    = static_cast<uint32_t>(poolSizes.size());
-    poolCreateInfo.pPoolSizes       = poolSizes.data();
-    poolCreateInfo.maxSets          = (uint32_t)anopol_max_frames + 4;
-    
-    if (vkCreateDescriptorPool(context->device, &poolCreateInfo, nullptr, &anopolDescriptorSets->descriptorPool) != VK_SUCCESS) anopol_assert("Failed to create descriptor pool");
-    
     //------------------------------------------------------------------------------------------//
     // Creating Necessary Pipeline Inputs
     //------------------------------------------------------------------------------------------//
@@ -334,51 +313,6 @@ void Pipeline::InitializePipeline() {
     // Uniform, Instance, Batching, Texture Descriptor Sets
     //------------------------------------------------------------------------------------------//
     
-    VkDescriptorSetLayoutBinding instanceBufferBinding{};
-    instanceBufferBinding.binding               = 1;
-    instanceBufferBinding.descriptorType        = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    instanceBufferBinding.descriptorCount       = 1;
-    instanceBufferBinding.stageFlags            = VK_SHADER_STAGE_VERTEX_BIT;
-    
-    VkDescriptorSetLayoutBinding uniformBufferLayoutBinding{};
-    uniformBufferLayoutBinding.binding          = 2;
-    uniformBufferLayoutBinding.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformBufferLayoutBinding.descriptorCount  = 1;
-    uniformBufferLayoutBinding.stageFlags       = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    
-    VkDescriptorSetLayoutBinding batchingBinding{};
-    batchingBinding.binding                     = 3;
-    batchingBinding.descriptorType              = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    batchingBinding.descriptorCount             = 1;
-    batchingBinding.stageFlags                  = VK_SHADER_STAGE_VERTEX_BIT;
-    
-    VkDescriptorSetLayoutBinding textureBinding{};
-    textureBinding.binding                      = 4;
-    textureBinding.descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    textureBinding.descriptorCount              = anopol_max_textures;
-    textureBinding.stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
-    textureBinding.pImmutableSamplers           = nullptr;
-    
-    VkDescriptorSetLayoutBinding bindings[] = {uniformBufferLayoutBinding, instanceBufferBinding, batchingBinding, textureBinding};
-    
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 4;
-    layoutInfo.pBindings    = bindings;
-    
-    if (vkCreateDescriptorSetLayout(context->device, &layoutInfo, nullptr, &anopolDescriptor) != VK_SUCCESS) anopol_assert("Failed to create descriptor");
-    
-    std::vector<VkDescriptorSetLayout> descriptorLayouts(anopol_max_frames, anopolDescriptor);
-    
-    VkDescriptorSetAllocateInfo descriptorAllocationInfo{};
-    descriptorAllocationInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptorAllocationInfo.descriptorPool     = anopolDescriptorSets->descriptorPool;
-    descriptorAllocationInfo.descriptorSetCount = (uint32_t)anopol_max_frames;
-    descriptorAllocationInfo.pSetLayouts        = descriptorLayouts.data();
-    
-    anopolDescriptorSets->descriptorSets.resize(anopol_max_frames);
-    if (vkAllocateDescriptorSets(context->device, &descriptorAllocationInfo, anopolDescriptorSets->descriptorSets.data()) != VK_SUCCESS) anopol_assert("Failed to allocate descriptor sets");
-    
     for (size_t i = 0; i < anopol_max_frames; i++) {
         
         VkDescriptorBufferInfo uniformDescriptorBufferInfo{};
@@ -400,38 +334,36 @@ void Pipeline::InitializePipeline() {
         textureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         textureInfo.imageView   = texture.textureImageView;
         textureInfo.sampler     = texture.sampler;
+                
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[0].dstSet          = ANOPOL_DESCRIPTOR_SETS->descriptorSets[i];
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[0].dstBinding      = 2;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[0].descriptorCount = 1;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[0].pBufferInfo     = &uniformDescriptorBufferInfo;
         
-        std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[1].dstSet          = ANOPOL_DESCRIPTOR_SETS->descriptorSets[i];
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[1].dstBinding      = 1;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[1].descriptorCount = 1;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[1].pBufferInfo     = &instanceDescriptorBufferInfo;
         
-        descriptorWrites[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet          = anopolDescriptorSets->descriptorSets[i];
-        descriptorWrites[0].dstBinding      = 2;
-        descriptorWrites[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo     = &uniformDescriptorBufferInfo;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[2].dstSet          = ANOPOL_DESCRIPTOR_SETS->descriptorSets[i];
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[2].dstBinding      = 3;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[2].descriptorCount = 1;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[2].pBufferInfo     = &transformDescriptorBufferInfo;
         
-        descriptorWrites[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet          = anopolDescriptorSets->descriptorSets[i];
-        descriptorWrites[1].dstBinding      = 1;
-        descriptorWrites[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pBufferInfo     = &instanceDescriptorBufferInfo;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[3].dstSet          = ANOPOL_DESCRIPTOR_SETS->descriptorSets[i];
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[3].dstBinding      = 4;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[3].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[3].descriptorCount = 1;
+        GLOBAL_PIPELINE_DESCRIPTOR_SETS[3].pImageInfo      = &textureInfo;
         
-        descriptorWrites[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet          = anopolDescriptorSets->descriptorSets[i];
-        descriptorWrites[2].dstBinding      = 3;
-        descriptorWrites[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo     = &transformDescriptorBufferInfo;
-        
-        descriptorWrites[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[3].dstSet          = anopolDescriptorSets->descriptorSets[i];
-        descriptorWrites[3].dstBinding      = 4;
-        descriptorWrites[3].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].pImageInfo      = &textureInfo;
-        
-        vkUpdateDescriptorSets(context->device, 4, descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(context->device, 4, GLOBAL_PIPELINE_DESCRIPTOR_SETS.data(), 0, nullptr);
     }
     
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
@@ -451,7 +383,7 @@ void Pipeline::InitializePipeline() {
     
     VkDescriptorSetAllocateInfo samplerAllocInfo{};
     samplerAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    samplerAllocInfo.descriptorPool     = anopolDescriptorSets->descriptorPool;
+    samplerAllocInfo.descriptorPool     = ANOPOL_DESCRIPTOR_SETS->descriptorPool;
     samplerAllocInfo.descriptorSetCount = 1;
     samplerAllocInfo.pSetLayouts        = &samplerDescriptorSetLayout;
 
@@ -489,7 +421,7 @@ void Pipeline::InitializePipeline() {
     //------------------------------------------------------------------------------------------//
     
     std::vector<VkDescriptorSetLayout> setLayouts = {
-        anopolDescriptor,
+        GLOBAL_ANOPOL_DESCRIPTOR_SET_LAYOUT,
         samplerDescriptorSetLayout
     };
     
@@ -699,7 +631,7 @@ void Pipeline::Bind(std::string name) {
     vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, anopolMainPipeline->pipeline);
     
     VkDescriptorSet descriptorSets[] = {
-        anopolDescriptorSets->descriptorSets[currentFrame],
+        ANOPOL_DESCRIPTOR_SETS->descriptorSets[currentFrame],
         samplerDescriptorSet
     };
     
@@ -713,6 +645,8 @@ void Pipeline::Bind(std::string name) {
                             nullptr);
     vkCmdSetViewport(commandBuffers[currentFrame], 0, 1, &anopolMainPipeline->viewport);
     vkCmdSetScissor(commandBuffers[currentFrame], 0, 1, &anopolMainPipeline->scissor);
+    
+    //testBatch.Cull();
         
     //------------------------------------------------------------------------------------------//
     // Camera-Renderable Collision
@@ -806,32 +740,34 @@ void Pipeline::Bind(std::string name) {
     // Rendering Batch
     //------------------------------------------------------------------------------------------//
     
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
+    if (!testBatch.GetBatchFrame(currentFrame).empty) {
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
+            
+        anopol::render::anopolStandardPushConstants standardPushConstants{};
+        standardPushConstants.scale             = glm::vec4(glm::vec3(0), 1.0f);
+        standardPushConstants.position          = glm::vec4(glm::vec3(0), 1.0f);
+        standardPushConstants.rotation          = glm::vec4(glm::vec3(0), 1.0f);
+        standardPushConstants.color             = glm::vec4(glm::vec3(0), 1.0f);
         
-    anopol::render::anopolStandardPushConstants standardPushConstants{};
-    standardPushConstants.scale             = glm::vec4(glm::vec3(0), 1.0f);
-    standardPushConstants.position          = glm::vec4(glm::vec3(0), 1.0f);
-    standardPushConstants.rotation          = glm::vec4(glm::vec3(0), 1.0f);
-    standardPushConstants.color             = glm::vec4(glm::vec3(0), 1.0f);
-    
-    standardPushConstants.instanced = false;
-    standardPushConstants.batched = true;
-    standardPushConstants.physicallyBasedRendering = true;
-    
-    glm::mat4 model = modelMatrix(standardPushConstants.position,
-                                  standardPushConstants.scale,
-                                  standardPushConstants.rotation);
-    
-    standardPushConstants.model = model;
-    
-    vkCmdPushConstants(commandBuffers[currentFrame],
-                       anopolMainPipeline->pipelineLayout,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       0,
-                       sizeof(anopol::render::anopolStandardPushConstants),
-                       &standardPushConstants);
-    vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.GetBatchFrame(currentFrame).drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
+        standardPushConstants.instanced = false;
+        standardPushConstants.batched = true;
+        standardPushConstants.physicallyBasedRendering = true;
+        
+        glm::mat4 model = modelMatrix(standardPushConstants.position,
+                                      standardPushConstants.scale,
+                                      standardPushConstants.rotation);
+        
+        standardPushConstants.model = model;
+        
+        vkCmdPushConstants(commandBuffers[currentFrame],
+                           anopolMainPipeline->pipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0,
+                           sizeof(anopol::render::anopolStandardPushConstants),
+                           &standardPushConstants);
+        vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.GetBatchFrame(currentFrame).drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
+    }
     
     //------------------------------------------------------------------------------------------//
     // Rendering Models / Instancing
@@ -979,8 +915,6 @@ void Pipeline::CleanUp() {
     texture.Dealloc();
     texture2.Dealloc();
     
-    vkDestroyDescriptorPool(context->device, anopolDescriptorSets->descriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(context->device, anopolDescriptor, nullptr);
     vkDestroyDescriptorSetLayout(context->device, samplerDescriptorSetLayout, nullptr);
     
     for (size_t i = 0; i < anopol_max_frames; i++) {
@@ -991,7 +925,6 @@ void Pipeline::CleanUp() {
     
     free(anopolPipelineDefinitions);
     free(anopolMainPipeline);
-    free(anopolDescriptorSets);
 }
 
 }
