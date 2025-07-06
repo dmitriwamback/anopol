@@ -11,9 +11,7 @@
 namespace anopol::pipeline {
 
 class Scene {
-    
     Pipeline pipeline;
-    
 };
 }
 

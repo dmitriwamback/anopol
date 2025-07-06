@@ -151,7 +151,7 @@ void main() {
     vec4 _albedo = textureLod(baseTextures[0], uv * 2, lod) * vec4(color, 1.0);
     vec3 albedo = _albedo.rgb;
 
-    if (pushConstants.object.physicallyBasedRendering == 0) {
+    if (pushConstants.object.physicallyBasedRendering == 0 && distance(cameraPosition, fragp) < 100) {
         float ambientStrength = 0.2;
         vec3 ambientColor = frag * ambientStrength;
 

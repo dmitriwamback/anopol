@@ -221,6 +221,8 @@ void initialize() {
         double currentTime = glfwGetTime();
         frameCount++;
         
+        std::cout << anopol::camera::camera.cameraPosition.x << " " << anopol::camera::camera.cameraPosition.y << " " << anopol::camera::camera.cameraPosition.z << '\n';
+        
         if (currentTime - previousTime >= 1.0) {
 
             glfwSetWindowTitle(context->window, ("Anopol FPS: " + std::to_string(frameCount)).c_str());

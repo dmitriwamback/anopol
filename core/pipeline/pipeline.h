@@ -23,12 +23,6 @@ public:
     };
     
     //------------------------------------------------------------------------------------------//
-    // Bloom
-    //------------------------------------------------------------------------------------------//
-    
-    
-    
-    //------------------------------------------------------------------------------------------//
     // Variables
     //------------------------------------------------------------------------------------------//
     
@@ -191,16 +185,16 @@ void Pipeline::InitializePipeline() {
     
     offscreen = anopol::render::OffscreenRendering::Create();
     
-    int length = 100;
+    int length = 200;
     int idx = 0;
     
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < length; j++) {
             anopol::render::Renderable* renderable = anopol::render::Renderable::Create();
             renderable->position = glm::vec3((i - length/2) * 15.f, 0, (j - length/2) * 15.f);
-            renderable->scale    = glm::vec3(10.f, 10.f, 10.0f);
+            renderable->scale    = glm::vec3(10.0f, 10.f, 10.0f);
             renderable->rotation = glm::vec3(rand()%360);
-            renderable->color    = glm::vec3(rand()%255/255.0f);
+            renderable->color    = glm::vec3(rand()%255/255.0f, rand()%255/255.0f, rand()%255/255.0f);
                         
             testBatch.Append(renderable);
             idx++;
@@ -209,11 +203,13 @@ void Pipeline::InitializePipeline() {
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
     testBatch.Combine();
     
-    for (int i = 0; i < 500; i++) {
-        for (int j = 0; j < 500; j++) {
+    int instance_size = 100;
+    
+    for (int i = 0; i < instance_size; i++) {
+        for (int j = 0; j < instance_size; j++) {
             
-            float x = (i - 500 / 2) * 2.0f;
-            float z = (j - 500 / 2) * 2.0f;
+            float x = (i - instance_size / 2) * 2.0f;
+            float z = (j - instance_size / 2) * 2.0f;
             
             float y = floor(math::overlapNoise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 0.4, 1.8, 10, 1039.3f * 10.0f));
                         
@@ -627,7 +623,7 @@ void Pipeline::Bind(std::string name) {
     anopolMainPipeline->viewport.height = static_cast<uint32_t>(context->extent.height);
     anopolMainPipeline->viewport.x = 0.0f;
 
-    vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffers[currentFrame], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
     vkCmdBindPipeline(commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, anopolMainPipeline->pipeline);
     
     VkDescriptorSet descriptorSets[] = {
@@ -740,34 +736,7 @@ void Pipeline::Bind(std::string name) {
     // Rendering Batch
     //------------------------------------------------------------------------------------------//
     
-    if (!testBatch.GetBatchFrame(currentFrame).empty) {
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, &testBatch.vertexBuffer.vertexBuffer, offsets);
-            
-        anopol::render::anopolStandardPushConstants standardPushConstants{};
-        standardPushConstants.scale             = glm::vec4(glm::vec3(0), 1.0f);
-        standardPushConstants.position          = glm::vec4(glm::vec3(0), 1.0f);
-        standardPushConstants.rotation          = glm::vec4(glm::vec3(0), 1.0f);
-        standardPushConstants.color             = glm::vec4(glm::vec3(0), 1.0f);
-        
-        standardPushConstants.instanced = false;
-        standardPushConstants.batched = true;
-        standardPushConstants.physicallyBasedRendering = true;
-        
-        glm::mat4 model = modelMatrix(standardPushConstants.position,
-                                      standardPushConstants.scale,
-                                      standardPushConstants.rotation);
-        
-        standardPushConstants.model = model;
-        
-        vkCmdPushConstants(commandBuffers[currentFrame],
-                           anopolMainPipeline->pipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           0,
-                           sizeof(anopol::render::anopolStandardPushConstants),
-                           &standardPushConstants);
-        vkCmdDrawIndirect(commandBuffers[currentFrame], testBatch.GetBatchFrame(currentFrame).drawCommandBuffer, 0, static_cast<uint32_t>(testBatch.transformations.size()), sizeof(VkDrawIndirectCommand));
-    }
+    testBatch.Render(anopolMainPipeline->pipelineLayout, commandBuffers[currentFrame], defaultRenderpass, framebuffers[anopolPipelineDefinitions->imageIndex], currentFrame);
     
     //------------------------------------------------------------------------------------------//
     // Rendering Models / Instancing

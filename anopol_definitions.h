@@ -40,6 +40,7 @@
 
 #define golden_ratio                static_cast<float>((1 + sqrt(5)) / 2.0f)
 #define inverse_golden_ratio        1.0f / golden_ratio
+#define MAX_SUB_BATCH_VERTEX_COUNT  50000
 
 float debugTime = 0;
 float deltaTime = 0;
@@ -182,7 +183,7 @@ glm::mat4 modelMatrix(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) {
                                    glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0, 1, 0)) *
                                    glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0, 0, 1));
     
-    return translationMatrix * scaleMatrix * rotationMatrix;
+    return translationMatrix * rotationMatrix * scaleMatrix;
 }
 
 }

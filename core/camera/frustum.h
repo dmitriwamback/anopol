@@ -63,8 +63,9 @@ Frustum CreateFrustumPlanes(Camera camera) {
 
 bool isSphereInFrustum(glm::vec3 position, glm::vec3 scale, glm::mat4 model, float radius, const Frustum& frustum) {
     
-    const glm::vec3 globalCenter = glm::vec3(model[3]);
-    Sphere globalSphere(globalCenter, radius);
+    const glm::vec3 globalCenter = position;
+    const float maxScale = std::max(std::max(scale.x, scale.y), scale.z);
+    Sphere globalSphere(globalCenter, radius * maxScale);
     
     return (globalSphere.isOnOrForwardPlane(frustum.left) &&
             globalSphere.isOnOrForwardPlane(frustum.right) &&
