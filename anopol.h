@@ -25,57 +25,57 @@ VkDescriptorSetLayout        GLOBAL_ANOPOL_DESCRIPTOR_SET_LAYOUT{};
 
 anopol::descriptorSets* ANOPOL_DESCRIPTOR_SETS;
 
-#include "core/pipeline/lighting.h"
-#include "core/math/math.h"
+#include "src/pipeline/lighting.h"
+#include "src/math/math.h"
 
 #include "ll/mem.h"
 #include "ll/internal.h"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "core/render/texture/stb_image.h"
-#include "core/render/texture/material.h"
-#include "core/render/texture/texture.h"
+#include "src/core/texture/stb_image.h"
+#include "src/core/texture/material.h"
+#include "src/core/texture/texture.h"
 
-#include "core/structs/shadow.h"
+#include "src/structs/shadow.h"
 
-#include "core/render/vertex.h"
+#include "src/core/vertex.h"
 
-#include "core/render/buffer/vertex_buffer.h"
-#include "core/render/buffer/index_buffer.h"
-#include "core/render/buffer/instance_buffer.h"
-#include "core/render/buffer/push_constants.h"
+#include "src/core/buffer/vertex_buffer.h"
+#include "src/core/buffer/index_buffer.h"
+#include "src/core/buffer/instance_buffer.h"
+#include "src/core/buffer/push_constants.h"
 
-#include "core/render/renderable.h"
-#include "core/render/asset.h"
+#include "src/core/renderable.h"
+#include "src/core/asset.h"
 
-#include "core/camera/ray.h"
-#include "core/camera/camera.h"
-#include "core/camera/frustum.h"
-#include "core/render/buffer/uniform_buffer.h"
+#include "src/camera/ray.h"
+#include "src/camera/camera.h"
+#include "src/camera/frustum.h"
+#include "src/core/buffer/uniform_buffer.h"
 
 #if defined(__APPLE__)
 #define APPLE_USE_METAL_GPU_HELPERS
 //#define APPLE_USE_OPENCL_GPU_HELPERS
-#include "core/batch/bgpu/mac/macos_batch_combine_wrapper.h"
+#include "src/batch/bgpu/mac/macos_batch_combine_wrapper.h"
 #endif
 
-#include "core/batch/mesh_combine_structs.h"
-#include "core/batch/mesh_combine.h"
-#include "core/batch/batch.h"
-#include "core/batch/dynamic_upload.h"
+#include "src/batch/mesh_combine_structs.h"
+#include "src/batch/mesh_combine.h"
+#include "src/batch/batch.h"
+#include "src/batch/dynamic_upload.h"
 
-#include "core/render/offscreen.h"
+#include "src/core/offscreen.h"
 
-#include "core/gjkepa/support.h"
-#include "core/gjkepa/simplex.h"
-#include "core/gjkepa/expanding_polytope_algorithm.h"
-#include "core/gjkepa/gilbert_johnson_keerthi.h"
+#include "src/gjkepa/support.h"
+#include "src/gjkepa/simplex.h"
+#include "src/gjkepa/expanding_polytope_algorithm.h"
+#include "src/gjkepa/gilbert_johnson_keerthi.h"
 
-#include "core/pipeline/collision_ray_thread.h"
+#include "src/pipeline/collision_ray_thread.h"
 
-#include "core/pipeline/pipeline_util.h"
-#include "core/pipeline/pipeline.h"
-#include "core/pipeline/scene.h"
+#include "src/pipeline/pipeline_util.h"
+#include "src/pipeline/pipeline.h"
+#include "src/pipeline/scene.h"
 
 namespace anopol {
 

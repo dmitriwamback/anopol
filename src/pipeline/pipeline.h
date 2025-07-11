@@ -208,12 +208,12 @@ void Pipeline::InitializePipeline() {
     for (int i = 0; i < instance_size; i++) {
         for (int j = 0; j < instance_size; j++) {
             
-            float x = (i - instance_size / 2) * 30.0f;
-            float z = (j - instance_size / 2) * 30.0f;
+            float x = (i - instance_size / 2) * 40.0f;
+            float z = (j - instance_size / 2) * 40.0f;
             
             //float y = floor(math::overlapNoise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 0.4, 1.8, 10, 1039.3f * 10.0f));
                         
-            testAsset->PushInstance(glm::vec3(x, z, -10), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(180.f, 180.f, 270.f) , glm::vec3(1.0f, 0.0f, 0.7f));
+            testAsset->PushInstance(glm::vec3(x, 15, z), glm::vec3(0.1f, 1.0f, 1.0f), glm::vec3(180.f, 180.f, 270.f) , glm::vec3(1.0f, 0.0f, 0.7f));
         }
     }
     testAsset->AllocInstances();
