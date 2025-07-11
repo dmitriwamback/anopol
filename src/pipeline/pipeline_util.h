@@ -18,7 +18,7 @@ struct pipeline {
     VkPipeline          pipeline;
 };
 
-struct pipelineDefinitions {
+struct pipelineConfigurations {
     
     VkPipelineDynamicStateCreateInfo            dynamicState{};
     VkPipelineVertexInputStateCreateInfo        vertexInput{};
@@ -43,9 +43,9 @@ enum PipelineType {
     Instance = 0, Batching = 1, InstanceAndBatching = 2
 };
 
-pipelineDefinitions GeneratePipelineDefinitions(PipelineType type, const VkViewport* viewport, const VkRect2D* scissor) {
+pipelineConfigurations CreatePipelineConfigurations(PipelineType type, const VkViewport* viewport, const VkRect2D* scissor) {
     
-    pipelineDefinitions definitions{};
+    pipelineConfigurations config{};
     
     
     std::vector<VkDynamicState> dynamicStates = {
@@ -53,14 +53,14 @@ pipelineDefinitions GeneratePipelineDefinitions(PipelineType type, const VkViewp
         VK_DYNAMIC_STATE_SCISSOR
     };
     
-    definitions.dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};;
+    config.dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};;
     
     VkVertexInputBindingDescription vertexBindingDescription = anopol::render::Vertex::getBindingDescription();
     VkVertexInputBindingDescription instanceBindingDescription = anopol::render::InstanceBuffer::GetBindingDescription();
     
     
     if (type == InstanceAndBatching) {
-        definitions.attributes = {
+        config.attributes = {
             VkVertexInputAttributeDescription {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, vertex)},
             VkVertexInputAttributeDescription {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, normal)},
             VkVertexInputAttributeDescription {2, 0, VK_FORMAT_R32G32_SFLOAT,    offsetof(anopol::render::Vertex, uv)},
@@ -70,96 +70,96 @@ pipelineDefinitions GeneratePipelineDefinitions(PipelineType type, const VkViewp
             VkVertexInputAttributeDescription {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow3)},
         };
         
-        definitions.bindings = {
+        config.bindings = {
             vertexBindingDescription,
             instanceBindingDescription
         };
     }
     else if (type == Instance) {
-        definitions.attributes = {
+        config.attributes = {
             VkVertexInputAttributeDescription {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow0)},
             VkVertexInputAttributeDescription {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow1)},
             VkVertexInputAttributeDescription {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow2)},
             VkVertexInputAttributeDescription {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow3)}
         };
-        definitions.bindings = {
+        config.bindings = {
             instanceBindingDescription
         };
     }
     else if (type == Batching) {
-        definitions.attributes = {
+        config.attributes = {
             VkVertexInputAttributeDescription {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, vertex)},
             VkVertexInputAttributeDescription {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, normal)},
             VkVertexInputAttributeDescription {2, 0, VK_FORMAT_R32G32_SFLOAT,    offsetof(anopol::render::Vertex, uv)},
         };
-        definitions.bindings = {
+        config.bindings = {
             vertexBindingDescription,
         };
     }
     
-    definitions.viewport = *viewport;
-    definitions.scissor = *scissor;
+    config.viewport = *viewport;
+    config.scissor = *scissor;
     
-    definitions.dynamicState.sType              = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    definitions.dynamicState.dynamicStateCount  = (uint32_t)definitions.dynamicStates.size();
-    definitions.dynamicState.pDynamicStates     = definitions.dynamicStates.data();
-    definitions.dynamicState.flags              = 0;
-    definitions.dynamicState.pNext              = nullptr;
+    config.dynamicState.sType              = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    config.dynamicState.dynamicStateCount  = (uint32_t)config.dynamicStates.size();
+    config.dynamicState.pDynamicStates     = config.dynamicStates.data();
+    config.dynamicState.flags              = 0;
+    config.dynamicState.pNext              = nullptr;
 
-    definitions.vertexInput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    definitions.vertexInput.vertexBindingDescriptionCount   = (uint32_t)definitions.bindings.size();
-    definitions.vertexInput.pVertexBindingDescriptions      = definitions.bindings.data();
-    definitions.vertexInput.vertexAttributeDescriptionCount = (uint32_t)definitions.attributes.size();
-    definitions.vertexInput.pVertexAttributeDescriptions    = definitions.attributes.data();
-    definitions.vertexInput.flags                           = 0;
-    definitions.vertexInput.pNext                           = nullptr;
+    config.vertexInput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    config.vertexInput.vertexBindingDescriptionCount   = (uint32_t)config.bindings.size();
+    config.vertexInput.pVertexBindingDescriptions      = config.bindings.data();
+    config.vertexInput.vertexAttributeDescriptionCount = (uint32_t)config.attributes.size();
+    config.vertexInput.pVertexAttributeDescriptions    = config.attributes.data();
+    config.vertexInput.flags                           = 0;
+    config.vertexInput.pNext                           = nullptr;
     
-    definitions.inputAssembly.sType                         = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    definitions.inputAssembly.topology                      = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    definitions.inputAssembly.primitiveRestartEnable        = VK_FALSE;
-    definitions.inputAssembly.flags                         = 0;
-    definitions.inputAssembly.pNext                         = nullptr;
+    config.inputAssembly.sType                         = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    config.inputAssembly.topology                      = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    config.inputAssembly.primitiveRestartEnable        = VK_FALSE;
+    config.inputAssembly.flags                         = 0;
+    config.inputAssembly.pNext                         = nullptr;
     
-    definitions.viewportState.sType                         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    definitions.viewportState.viewportCount                 = 1;
-    definitions.viewportState.scissorCount                  = 1;
-    definitions.viewportState.pViewports                    = viewport;
-    definitions.viewportState.pScissors                     = scissor;
-    definitions.viewportState.flags                         = 0;
-    definitions.viewportState.pNext                         = nullptr;
+    config.viewportState.sType                         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    config.viewportState.viewportCount                 = 1;
+    config.viewportState.scissorCount                  = 1;
+    config.viewportState.pViewports                    = viewport;
+    config.viewportState.pScissors                     = scissor;
+    config.viewportState.flags                         = 0;
+    config.viewportState.pNext                         = nullptr;
     
-    definitions.rasterizer.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    definitions.rasterizer.depthClampEnable                 = VK_FALSE;
-    definitions.rasterizer.rasterizerDiscardEnable          = VK_FALSE;
-    definitions.rasterizer.polygonMode                      = VK_POLYGON_MODE_FILL;
-    definitions.rasterizer.lineWidth                        = 1;
-    definitions.rasterizer.cullMode                         = VK_CULL_MODE_FRONT_BIT;
-    definitions.rasterizer.frontFace                        = VK_FRONT_FACE_CLOCKWISE;
-    definitions.rasterizer.depthBiasEnable                  = VK_FALSE;
-    definitions.rasterizer.depthBiasConstantFactor          = 0;
-    definitions.rasterizer.depthBiasClamp                   = 0;
-    definitions.rasterizer.depthBiasSlopeFactor             = 0;
-    definitions.rasterizer.flags                            = 0;
-    definitions.rasterizer.pNext                            = NULL;
+    config.rasterizer.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    config.rasterizer.depthClampEnable                 = VK_FALSE;
+    config.rasterizer.rasterizerDiscardEnable          = VK_FALSE;
+    config.rasterizer.polygonMode                      = VK_POLYGON_MODE_FILL;
+    config.rasterizer.lineWidth                        = 1;
+    config.rasterizer.cullMode                         = VK_CULL_MODE_FRONT_BIT;
+    config.rasterizer.frontFace                        = VK_FRONT_FACE_CLOCKWISE;
+    config.rasterizer.depthBiasEnable                  = VK_FALSE;
+    config.rasterizer.depthBiasConstantFactor          = 0;
+    config.rasterizer.depthBiasClamp                   = 0;
+    config.rasterizer.depthBiasSlopeFactor             = 0;
+    config.rasterizer.flags                            = 0;
+    config.rasterizer.pNext                            = NULL;
     
-    definitions.color.colorWriteMask                        = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    definitions.color.blendEnable                           = VK_FALSE;
+    config.color.colorWriteMask                        = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    config.color.blendEnable                           = VK_FALSE;
     
-    definitions.colorBlending.sType                         = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    definitions.colorBlending.logicOpEnable                 = VK_FALSE;
-    definitions.colorBlending.attachmentCount               = 1;
-    definitions.colorBlending.pAttachments                  = &definitions.color;
-    definitions.colorBlending.flags                         = 0;
-    definitions.colorBlending.pNext                         = NULL;
+    config.colorBlending.sType                         = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    config.colorBlending.logicOpEnable                 = VK_FALSE;
+    config.colorBlending.attachmentCount               = 1;
+    config.colorBlending.pAttachments                  = &config.color;
+    config.colorBlending.flags                         = 0;
+    config.colorBlending.pNext                         = NULL;
     
-    definitions.multisample.sType                           = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    definitions.multisample.sampleShadingEnable             = VK_FALSE;
-    definitions.multisample.rasterizationSamples            = VK_SAMPLE_COUNT_1_BIT;
-    definitions.multisample.minSampleShading                = 1.0f;
-    definitions.multisample.alphaToCoverageEnable           = VK_FALSE;
-    definitions.multisample.alphaToOneEnable                = VK_FALSE;
+    config.multisample.sType                           = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    config.multisample.sampleShadingEnable             = VK_FALSE;
+    config.multisample.rasterizationSamples            = VK_SAMPLE_COUNT_1_BIT;
+    config.multisample.minSampleShading                = 1.0f;
+    config.multisample.alphaToCoverageEnable           = VK_FALSE;
+    config.multisample.alphaToOneEnable                = VK_FALSE;
     
-    return definitions;
+    return config;
 }
     
 }
