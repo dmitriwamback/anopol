@@ -48,6 +48,11 @@ layout (location = 0) in vec3 inVertex;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 UV;
 
+layout(location = 3) in vec4 instance_model0;
+layout(location = 4) in vec4 instance_model1;
+layout(location = 5) in vec4 instance_model2;
+layout(location = 6) in vec4 instance_model3;
+
 layout (location = 0) out vec3 frag;
 layout (location = 1) out vec3 normal;
 layout (location = 2) out vec3 fragp;
@@ -84,9 +89,10 @@ void main() {
     }
 
     if (pushConstants.object.instanced == 1 && pushConstants.object.batched == 0) {
-        gl_Position = ubo.projection * ubo.lookAt * properties[gl_InstanceIndex].model * vec4(inVertex, 1.0);
-        normal  = normalize(transpose(inverse(mat3(properties[gl_InstanceIndex].model))) * inNormal);
-        fragp   = (properties[gl_InstanceIndex].model * vec4(inVertex, 1.0)).xyz;
+        mat4 m = mat4(instance_model0, instance_model1, instance_model2, instance_model3);
+        gl_Position = ubo.projection * ubo.lookAt * m * vec4(inVertex, 1.0);
+        normal  = normalize(transpose(inverse(mat3(m))) * inNormal);
+        fragp   = (m * vec4(inVertex, 1.0)).xyz;
         frag    = properties[gl_InstanceIndex].color.rgb;
         return;
     }
