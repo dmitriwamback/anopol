@@ -11,6 +11,9 @@
 namespace anopol::pipeline {
 
 class Scene {
+public:
+    static Scene Create();
+private:
     Pipeline batchingPipeline, shadowPipeline, gBufferPipeline, instancePipeline;
 };
 }

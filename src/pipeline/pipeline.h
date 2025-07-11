@@ -40,7 +40,7 @@ public:
     std::vector<VkFence>            inFlightFences     = std::vector<VkFence>();
     
     pipeline*                       anopolMainPipeline;
-    pipelineDefinitions*            anopolPipelineDefinitions;
+    pipelineDefinitions             anopolPipelineDefinitions{};
     VkDescriptorSetLayout           samplerDescriptorSetLayout;
     
     VkDescriptorSet                 samplerDescriptorSet;
@@ -109,7 +109,6 @@ Pipeline Pipeline::CreatePipeline(std::string shaderFolder) {
     pipeline.frag = frag;
 
     pipeline.anopolMainPipeline         = static_cast<struct pipeline*>(malloc(1 * sizeof(struct pipeline)));
-    pipeline.anopolPipelineDefinitions  = static_cast<pipelineDefinitions*>(malloc(1 * sizeof(pipelineDefinitions)));
     
     pipeline.InitializePipeline();
     pipeline.CreateCommandBuffers();
@@ -241,89 +240,7 @@ void Pipeline::InitializePipeline() {
         VK_DYNAMIC_STATE_SCISSOR
     };
     
-    anopolPipelineDefinitions->dynamicState.sType              = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->dynamicState.dynamicStateCount  = (uint32_t)dynamicStates.size();
-    anopolPipelineDefinitions->dynamicState.pDynamicStates     = dynamicStates.data();
-    anopolPipelineDefinitions->dynamicState.flags              = 0;
-    anopolPipelineDefinitions->dynamicState.pNext              = nullptr;
-    
-    
-    VkVertexInputBindingDescription vertexBindingDescription = anopol::render::Vertex::getBindingDescription();
-    VkVertexInputBindingDescription instanceBindingDescription = anopol::render::InstanceBuffer::GetBindingDescription();
-    
-    std::array<VkVertexInputAttributeDescription, 3> vertexAttributes    = anopol::render::Vertex::getAttributeDescription();
-    std::array<VkVertexInputAttributeDescription, 4> instanceAttributes  = anopol::render::InstanceBuffer::GetAttributeDescriptions();
-    
-    
-    std::array<VkVertexInputAttributeDescription, 7> attribute = {
-        VkVertexInputAttributeDescription {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, vertex)},
-        VkVertexInputAttributeDescription {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, normal)},
-        VkVertexInputAttributeDescription {2, 0, VK_FORMAT_R32G32_SFLOAT,    offsetof(anopol::render::Vertex, uv)},
-        VkVertexInputAttributeDescription {3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow0)},
-        VkVertexInputAttributeDescription {4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow1)},
-        VkVertexInputAttributeDescription {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow2)},
-        VkVertexInputAttributeDescription {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow3)},
-    };
-
-    std::array<VkVertexInputBindingDescription, 2> bindings = {
-        vertexBindingDescription,
-        instanceBindingDescription
-    };
-
-    
-    anopolPipelineDefinitions->vertexInput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->vertexInput.vertexBindingDescriptionCount   = bindings.size();
-    anopolPipelineDefinitions->vertexInput.pVertexBindingDescriptions      = bindings.data();
-    anopolPipelineDefinitions->vertexInput.vertexAttributeDescriptionCount = attribute.size();
-    anopolPipelineDefinitions->vertexInput.pVertexAttributeDescriptions    = attribute.data();
-    anopolPipelineDefinitions->vertexInput.flags                           = 0;
-    anopolPipelineDefinitions->vertexInput.pNext                           = nullptr;
-    
-    anopolPipelineDefinitions->inputAssembly.sType                         = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->inputAssembly.topology                      = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    anopolPipelineDefinitions->inputAssembly.primitiveRestartEnable        = VK_FALSE;
-    anopolPipelineDefinitions->inputAssembly.flags                         = 0;
-    anopolPipelineDefinitions->inputAssembly.pNext                         = nullptr;
-    
-    anopolPipelineDefinitions->viewportState.sType                         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->viewportState.viewportCount                 = 1;
-    anopolPipelineDefinitions->viewportState.scissorCount                  = 1;
-    anopolPipelineDefinitions->viewportState.pViewports                    = &anopolMainPipeline->viewport;
-    anopolPipelineDefinitions->viewportState.pScissors                     = &anopolMainPipeline->scissor;
-    anopolPipelineDefinitions->viewportState.flags                         = 0;
-    anopolPipelineDefinitions->viewportState.pNext                         = nullptr;
-    
-    anopolPipelineDefinitions->rasterizer.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->rasterizer.depthClampEnable                 = VK_FALSE;
-    anopolPipelineDefinitions->rasterizer.rasterizerDiscardEnable          = VK_FALSE;
-    anopolPipelineDefinitions->rasterizer.polygonMode                      = VK_POLYGON_MODE_FILL;
-    anopolPipelineDefinitions->rasterizer.lineWidth                        = 1;
-    anopolPipelineDefinitions->rasterizer.cullMode                         = VK_CULL_MODE_FRONT_BIT;
-    anopolPipelineDefinitions->rasterizer.frontFace                        = VK_FRONT_FACE_CLOCKWISE;
-    anopolPipelineDefinitions->rasterizer.depthBiasEnable                  = VK_FALSE;
-    anopolPipelineDefinitions->rasterizer.depthBiasConstantFactor          = 0;
-    anopolPipelineDefinitions->rasterizer.depthBiasClamp                   = 0;
-    anopolPipelineDefinitions->rasterizer.depthBiasSlopeFactor             = 0;
-    anopolPipelineDefinitions->rasterizer.flags                            = 0;
-    anopolPipelineDefinitions->rasterizer.pNext                            = NULL;
-    
-    VkPipelineColorBlendAttachmentState color{};
-    color.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    color.blendEnable = VK_FALSE;
-    
-    anopolPipelineDefinitions->colorBlending.sType                         = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->colorBlending.logicOpEnable                 = VK_FALSE;
-    anopolPipelineDefinitions->colorBlending.attachmentCount               = 1;
-    anopolPipelineDefinitions->colorBlending.pAttachments                  = &color;
-    anopolPipelineDefinitions->colorBlending.flags                         = 0;
-    anopolPipelineDefinitions->colorBlending.pNext                         = NULL;
-    
-    anopolPipelineDefinitions->multisample.sType                           = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->multisample.sampleShadingEnable             = VK_FALSE;
-    anopolPipelineDefinitions->multisample.rasterizationSamples            = VK_SAMPLE_COUNT_1_BIT;
-    anopolPipelineDefinitions->multisample.minSampleShading                = 1.0f;
-    anopolPipelineDefinitions->multisample.alphaToCoverageEnable           = VK_FALSE;
-    anopolPipelineDefinitions->multisample.alphaToOneEnable                = VK_FALSE;
+    anopolPipelineDefinitions = GeneratePipelineDefinitions(InstanceAndBatching, &anopolMainPipeline->viewport, &anopolMainPipeline->scissor);
     
     //------------------------------------------------------------------------------------------//
     // Uniform, Instance, Batching, Texture Descriptor Sets
@@ -518,12 +435,12 @@ void Pipeline::InitializePipeline() {
 
     pipelineInfo.sType                  = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount             = 2;
-    pipelineInfo.pVertexInputState      = &anopolPipelineDefinitions->vertexInput;
-    pipelineInfo.pInputAssemblyState    = &anopolPipelineDefinitions->inputAssembly;
-    pipelineInfo.pViewportState         = &anopolPipelineDefinitions->viewportState;
-    pipelineInfo.pRasterizationState    = &anopolPipelineDefinitions->rasterizer;
-    pipelineInfo.pColorBlendState       = &anopolPipelineDefinitions->colorBlending;
-    pipelineInfo.pDynamicState          = &anopolPipelineDefinitions->dynamicState;
+    pipelineInfo.pVertexInputState      = &anopolPipelineDefinitions.vertexInput;
+    pipelineInfo.pInputAssemblyState    = &anopolPipelineDefinitions.inputAssembly;
+    pipelineInfo.pViewportState         = &anopolPipelineDefinitions.viewportState;
+    pipelineInfo.pRasterizationState    = &anopolPipelineDefinitions.rasterizer;
+    pipelineInfo.pColorBlendState       = &anopolPipelineDefinitions.colorBlending;
+    pipelineInfo.pDynamicState          = &anopolPipelineDefinitions.dynamicState;
     
     if (vkCreateRenderPass(context->device, &renderpassInfo, nullptr, &defaultRenderpass) != VK_SUCCESS) anopol_assert("Failed to create RenderPass!");
     
@@ -559,7 +476,7 @@ void Pipeline::InitializePipeline() {
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex  = -1;
     pipelineInfo.pDepthStencilState = &depthStencilInfo;
-    pipelineInfo.pMultisampleState  = &anopolPipelineDefinitions->multisample;
+    pipelineInfo.pMultisampleState  = &anopolPipelineDefinitions.multisample;
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { shaderModules["vert"], shaderModules["frag"] };
 
@@ -623,7 +540,7 @@ void Pipeline::Bind(std::string name) {
     beginInfo.flags = 0;
     beginInfo.pInheritanceInfo = nullptr;
     
-    vkAcquireNextImageKHR(context->device, context->swapchain, UINT64_MAX, imageSemaphores[currentFrame], VK_NULL_HANDLE, &anopolPipelineDefinitions->imageIndex);
+    vkAcquireNextImageKHR(context->device, context->swapchain, UINT64_MAX, imageSemaphores[currentFrame], VK_NULL_HANDLE, &anopolPipelineDefinitions.imageIndex);
     vkResetFences(context->device, 1, &inFlightFences[currentFrame]);
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
@@ -636,7 +553,7 @@ void Pipeline::Bind(std::string name) {
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType               = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass          = defaultRenderpass;
-    renderPassBeginInfo.framebuffer         = framebuffers[anopolPipelineDefinitions->imageIndex];
+    renderPassBeginInfo.framebuffer         = framebuffers[anopolPipelineDefinitions.imageIndex];
     renderPassBeginInfo.renderArea.offset   = {0, 0};
     renderPassBeginInfo.renderArea.extent   = context->extent;
 
@@ -767,7 +684,7 @@ void Pipeline::Bind(std::string name) {
     // Rendering Batch
     //------------------------------------------------------------------------------------------//
     
-    testBatch.Render(anopolMainPipeline->pipelineLayout, commandBuffers[currentFrame], defaultRenderpass, framebuffers[anopolPipelineDefinitions->imageIndex], currentFrame);
+    testBatch.Render(anopolMainPipeline->pipelineLayout, commandBuffers[currentFrame], defaultRenderpass, framebuffers[anopolPipelineDefinitions.imageIndex], currentFrame);
     
     //------------------------------------------------------------------------------------------//
     // Rendering Models / Instancing
@@ -865,7 +782,7 @@ void Pipeline::Bind(std::string name) {
     VkSwapchainKHR swapChains[] = {context->swapchain};
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &anopolPipelineDefinitions->imageIndex;
+    presentInfo.pImageIndices = &anopolPipelineDefinitions.imageIndex;
 
     vkQueuePresentKHR(context->presentQueue, &presentInfo);
 }
@@ -923,8 +840,6 @@ void Pipeline::CleanUp() {
         vkDestroySemaphore(context->device, imageSemaphores[i], nullptr);
         vkDestroyFence(context->device, inFlightFences[i], nullptr);
     }
-    
-    free(anopolPipelineDefinitions);
     free(anopolMainPipeline);
 }
 

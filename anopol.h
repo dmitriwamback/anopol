@@ -156,27 +156,27 @@ void initialize() {
     if (vkCreateDescriptorPool(context->device, &poolCreateInfo, nullptr, &ANOPOL_DESCRIPTOR_SETS->descriptorPool) != VK_SUCCESS) anopol_assert("Failed to create descriptor pool");
     
     GLOBAL_INSTANCE_BINDING.binding                     = 1;
-    GLOBAL_INSTANCE_BINDING.descriptorType              = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     GLOBAL_INSTANCE_BINDING.descriptorCount             = 1;
+    GLOBAL_INSTANCE_BINDING.descriptorType              = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     GLOBAL_INSTANCE_BINDING.stageFlags                  = VK_SHADER_STAGE_VERTEX_BIT;
     
     GLOBAL_UNIFORM_BUFFER_BINDING.binding               = 2;
-    GLOBAL_UNIFORM_BUFFER_BINDING.descriptorType        = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     GLOBAL_UNIFORM_BUFFER_BINDING.descriptorCount       = 1;
+    GLOBAL_UNIFORM_BUFFER_BINDING.descriptorType        = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     GLOBAL_UNIFORM_BUFFER_BINDING.stageFlags            = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     
     GLOBAL_BATCHING_BINDING.binding                     = 3;
-    GLOBAL_BATCHING_BINDING.descriptorType              = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     GLOBAL_BATCHING_BINDING.descriptorCount             = 1;
+    GLOBAL_BATCHING_BINDING.descriptorType              = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     GLOBAL_BATCHING_BINDING.stageFlags                  = VK_SHADER_STAGE_VERTEX_BIT;
     
     GLOBAL_TEXTURE_BINDING.binding                      = 4;
-    GLOBAL_TEXTURE_BINDING.descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     GLOBAL_TEXTURE_BINDING.descriptorCount              = anopol_max_textures;
+    GLOBAL_TEXTURE_BINDING.descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     GLOBAL_TEXTURE_BINDING.stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
     GLOBAL_TEXTURE_BINDING.pImmutableSamplers           = nullptr;
     
-    VkDescriptorSetLayoutBinding bindings[] = {GLOBAL_UNIFORM_BUFFER_BINDING, GLOBAL_INSTANCE_BINDING, GLOBAL_BATCHING_BINDING, GLOBAL_TEXTURE_BINDING};
+    VkDescriptorSetLayoutBinding bindings[] = {GLOBAL_INSTANCE_BINDING, GLOBAL_UNIFORM_BUFFER_BINDING, GLOBAL_BATCHING_BINDING, GLOBAL_TEXTURE_BINDING};
     
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
