@@ -11,7 +11,7 @@
 namespace anopol::pipeline {
 
 class Scene {
-    Pipeline pipeline;
+    Pipeline batchingPipeline, shadowPipeline, gBufferPipeline, instancePipeline;
 };
 }
 

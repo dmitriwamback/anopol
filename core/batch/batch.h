@@ -67,7 +67,7 @@ public:
     void UpdateTransforms(batchFrame& frame, uint32_t idx);
     void Cull();
     void Render(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer framebuffer, uint32_t currentFrame);
-    batchFrame GetBatchFrame(int frame);
+    batchFrame& GetBatchFrame(int frame);
     VkCommandBuffer GetSecondaryCommandBuffer(int frame);
     
 private:
@@ -77,6 +77,9 @@ private:
     int     processed;
     size_t  uploadedTransformCount = 0;
     void allocateFrame(int frameidx);
+    
+    VkBuffer redundantBuffer;
+    VkDeviceMemory redundantBufferMemory;
 };
 
 Batch Batch::Create() {
@@ -99,6 +102,51 @@ Batch Batch::Create() {
     
     batch.meshCombineGroup = MeshCombineGroup();
     batch.processed = 0;
+    
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(glm::vec4) * 5;
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(context->device, &bufferInfo, nullptr, &batch.redundantBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create dummy vertex buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(context->device, batch.redundantBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+
+
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(context->physicalDevice, &memProperties);
+
+    bool memTypeFound = false;
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((memRequirements.memoryTypeBits & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+            allocInfo.memoryTypeIndex = i;
+            memTypeFound = true;
+            break;
+        }
+    }
+    if (!memTypeFound) {
+        throw std::runtime_error("failed to find suitable memory type for dummy buffer!");
+    }
+
+    if (vkAllocateMemory(context->device, &allocInfo, nullptr, &batch.redundantBufferMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate dummy buffer memory!");
+    }
+
+    vkBindBufferMemory(context->device, batch.redundantBuffer, batch.redundantBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(context->device, batch.redundantBufferMemory, 0, bufferInfo.size, 0, &data);
+    memset(data, 0, static_cast<size_t>(bufferInfo.size));
+    vkUnmapMemory(context->device, batch.redundantBufferMemory);
     
     return batch;
 }
@@ -152,30 +200,31 @@ void Batch::Combine(int currentFrame = -1) {
         
         vertexCount = renderable->vertices.size();
         
-        batchDrawInformation drawInfo;
-        
-        transformations.push_back({
-            modelMatrix(renderable->position, renderable->scale, renderable->rotation),
-            glm::vec4(renderable->color, 1.0f)
-        });
-        
-        if (renderable->isIndexed == false || renderable->indexBuffer.bufferSize == VkDeviceSize(0)) {
-            drawInfo.drawType       = nonIndexed;
-            drawInfo.firstVertex    = vertexOffset;
-            drawInfo.vertexCount    = static_cast<uint32_t>(renderable->vertices.size());
-            drawInfo.object         = static_cast<uint32_t>(i);
+        uint32_t currentVertexOffset = vertexOffset;
+        uint32_t currentIndexOffset = indexOffset;
+
+        batchDrawInformation drawInfo{};
+        transformations.push_back({ model, glm::vec4(renderable->color, 1.0f) });
+
+        if (!renderable->isIndexed || renderable->indexBuffer.bufferSize == 0) {
+            drawInfo.drawType = nonIndexed;
+            drawInfo.firstVertex = currentVertexOffset;
+            drawInfo.vertexCount = static_cast<uint32_t>(renderable->vertices.size());
+            drawInfo.object = static_cast<uint32_t>(i);
         }
         else {
             drawInfo.drawType = indexed;
+
             for (uint32_t index : renderable->indices) {
-                batchIndices.push_back(index + vertexOffset);
+                batchIndices.push_back(index + currentVertexOffset);
             }
-            drawInfo.firstIndex     = indexOffset;
-            drawInfo.indexCount     = static_cast<uint32_t>(renderable->indices.size());
-            drawInfo.vertexOffset   = vertexOffset;
-            drawInfo.object         = static_cast<uint32_t>(i);
-            
-            indexOffset += renderable->indices.size();
+
+            drawInfo.firstIndex   = currentIndexOffset;
+            drawInfo.indexCount   = static_cast<uint32_t>(renderable->indices.size());
+            drawInfo.vertexOffset = currentVertexOffset;
+            drawInfo.object       = static_cast<uint32_t>(i);
+
+            indexOffset += static_cast<uint32_t>(renderable->indices.size());
         }
         vertexOffset += renderable->vertices.size();
         
@@ -337,11 +386,13 @@ void Batch::UpdateTransforms(batchFrame& frame, uint32_t idx) {
     VkDeviceSize bufferSize = sizeof(batchIndirectTransformation) * max_batch_indirect_transform_size;
         
     if (!frame.allocatedTransformations) {
+        
         anopol::ll::createBuffer(bufferSize,
                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                  frame.transformBuffer,
                                  frame.transformBufferMemory);
+        
         frame.allocatedTransformations = true;
     }
 
@@ -354,9 +405,16 @@ void Batch::UpdateTransforms(batchFrame& frame, uint32_t idx) {
                              stagingBuffer,
                              stagingBufferMemory);
     
+    if (transformations.empty() || bufferSize == 0) {
+        throw std::runtime_error("Transformations are empty; cannot memcpy");
+    }
+
     void* data;
-    vkMapMemory(context->device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, transformations.data(), bufferSize);
+    if (vkMapMemory(context->device, stagingBufferMemory, 0, bufferSize, 0, &data) != VK_SUCCESS || data == nullptr) {
+        throw std::runtime_error("Failed to map memory for transformations");
+    }
+
+    memcpy(data, transformations.data(), sizeof(batchIndirectTransformation) * transformations.size());
     vkUnmapMemory(context->device, stagingBufferMemory);
     
     VkCommandBuffer commandBuffer = anopol::ll::beginSingleCommandBuffer();
@@ -371,7 +429,7 @@ void Batch::UpdateTransforms(batchFrame& frame, uint32_t idx) {
     vkFreeMemory(context->device, stagingBufferMemory, nullptr);
 }
 
-Batch::batchFrame Batch::GetBatchFrame(int frame) {
+Batch::batchFrame& Batch::GetBatchFrame(int frame) {
     return frames[frame];
 }
 
@@ -389,6 +447,9 @@ void Batch::Dealloc() {
     }
     vertexBuffer.dealloc();
     indexBuffer.dealloc();
+    
+    vkDestroyBuffer(context->device, redundantBuffer, nullptr);
+    vkFreeMemory(context->device, redundantBufferMemory, nullptr);
     
     for (int i = 0; i < anopol_max_frames; i++) {
         vkDestroyBuffer(context->device, frames[i].drawCommandBuffer, nullptr);
@@ -496,8 +557,10 @@ void Batch::Render(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffe
 
     vkBeginCommandBuffer(batchCommandBuffers[currentFrame], &beginInfo);
     
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(batchCommandBuffers[currentFrame], 0, 1, &vertexBuffer.vertexBuffer, offsets);
+    
+    VkBuffer buffers[] = { vertexBuffer.vertexBuffer, redundantBuffer };
+    VkDeviceSize offsets[] = { 0, 0 };
+    vkCmdBindVertexBuffers(batchCommandBuffers[currentFrame], 0, 2, buffers, offsets);
         
     anopol::render::anopolStandardPushConstants standardPushConstants{};
     standardPushConstants.scale             = glm::vec4(glm::vec3(0), 1.0f);

@@ -11,7 +11,10 @@
 namespace anopol::render {
 
 struct instanceProperties {
-    glm::mat4 model;
+    glm::vec4 modelRow0;
+    glm::vec4 modelRow1;
+    glm::vec4 modelRow2;
+    glm::vec4 modelRow3;
     glm::vec4 color;
 };
 
@@ -28,20 +31,42 @@ public:
     void appendInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation, glm::vec3 color);
     void allocInstances();
 
+    static VkVertexInputBindingDescription GetBindingDescription();
+    static std::array<VkVertexInputAttributeDescription, 4> GetAttributeDescriptions();
+    
 private:
     size_t maxInstances;
     void resize();
     void flush();
 };
 
+VkVertexInputBindingDescription InstanceBuffer::GetBindingDescription() {
+    return VkVertexInputBindingDescription {
+        .binding = 1,
+        .stride = sizeof(instanceProperties),
+        .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE
+    };
+}
+
+std::array<VkVertexInputAttributeDescription, 4> InstanceBuffer::GetAttributeDescriptions() {
+    return {
+        VkVertexInputAttributeDescription {3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(instanceProperties, modelRow0)},
+        VkVertexInputAttributeDescription {4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(instanceProperties, modelRow1)},
+        VkVertexInputAttributeDescription {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(instanceProperties, modelRow2)},
+        VkVertexInputAttributeDescription {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(instanceProperties, modelRow3)},
+    };
+}
+
 void InstanceBuffer::alloc(size_t initialSize) {
     
     maxInstances = initialSize;
     VkDeviceSize bufferSize = sizeof(instanceProperties) * maxInstances;
-    
-    anopol::ll::createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instanceBuffer, instanceBufferMemory);
-    
+
+    anopol::ll::createBuffer(bufferSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        instanceBuffer, instanceBufferMemory);
+
     vkMapMemory(context->device, instanceBufferMemory, 0, VK_WHOLE_SIZE, 0, &instanceBufferMemoryMapped);
 }
 
@@ -53,7 +78,11 @@ void InstanceBuffer::dealloc() {
 void InstanceBuffer::appendInstance(glm::vec3 position, glm::vec3 scale, glm::vec3 rotation, glm::vec3 color) {
     
     instanceProperties instance{};
-    instance.model = modelMatrix(position, scale, rotation);
+    glm::mat4 model = modelMatrix(position, scale, rotation);
+    instance.modelRow0 = model[0];
+    instance.modelRow1 = model[1];
+    instance.modelRow2 = model[2];
+    instance.modelRow3 = model[3];
     instance.color = glm::vec4(color, 1.0f);
     
     instances.push_back(instance);
@@ -76,7 +105,7 @@ void InstanceBuffer::resize() {
     VkBuffer newBuffer;
     VkDeviceMemory newMemory;
     
-    anopol::ll::createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    anopol::ll::createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                              newBuffer, newMemory);
     

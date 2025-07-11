@@ -185,7 +185,7 @@ void Pipeline::InitializePipeline() {
     
     offscreen = anopol::render::OffscreenRendering::Create();
     
-    int length = 200;
+    int length = 150;
     int idx = 0;
     
     for (int i = 0; i < length; i++) {
@@ -200,20 +200,20 @@ void Pipeline::InitializePipeline() {
             idx++;
         }
     }
-    anopol::render::Asset* testAsset = anopol::render::Asset::Create("");
+    anopol::render::Asset* testAsset = anopol::render::Asset::Create("/Users/dmitriwamback/Documents/Projects/nova scotia/nova scotia/models/Nova Scotia.obj");
     testBatch.Combine();
     
-    int instance_size = 100;
+    int instance_size = 12;
     
     for (int i = 0; i < instance_size; i++) {
         for (int j = 0; j < instance_size; j++) {
             
-            float x = (i - instance_size / 2) * 2.0f;
-            float z = (j - instance_size / 2) * 2.0f;
+            float x = (i - instance_size / 2) * 30.0f;
+            float z = (j - instance_size / 2) * 30.0f;
             
-            float y = floor(math::overlapNoise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 0.4, 1.8, 10, 1039.3f * 10.0f));
+            //float y = floor(math::overlapNoise((x + 0.01f) / 32.25f, (z + 0.01f) / 32.25f, 0.4, 1.8, 10, 1039.3f * 10.0f));
                         
-            testAsset->PushInstance(glm::vec3(x, -100.0f + y, z), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.f, 0.f, 0.f) , glm::vec3(1.0f, 0.8f, 0.7f));
+            testAsset->PushInstance(glm::vec3(x, z, -10), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(180.f, 180.f, 270.f) , glm::vec3(1.0f, 0.0f, 0.7f));
         }
     }
     testAsset->AllocInstances();
@@ -248,12 +248,32 @@ void Pipeline::InitializePipeline() {
     anopolPipelineDefinitions->dynamicState.pNext              = nullptr;
     
     
-    VkVertexInputBindingDescription description = anopol::render::Vertex::getBindingDescription();
-    std::array<VkVertexInputAttributeDescription, 3> attribute = anopol::render::Vertex::getAttributeDescription();
+    VkVertexInputBindingDescription vertexBindingDescription = anopol::render::Vertex::getBindingDescription();
+    VkVertexInputBindingDescription instanceBindingDescription = anopol::render::InstanceBuffer::GetBindingDescription();
+    
+    std::array<VkVertexInputAttributeDescription, 3> vertexAttributes    = anopol::render::Vertex::getAttributeDescription();
+    std::array<VkVertexInputAttributeDescription, 4> instanceAttributes  = anopol::render::InstanceBuffer::GetAttributeDescriptions();
+    
+    
+    std::array<VkVertexInputAttributeDescription, 7> attribute = {
+        VkVertexInputAttributeDescription {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, vertex)},
+        VkVertexInputAttributeDescription {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(anopol::render::Vertex, normal)},
+        VkVertexInputAttributeDescription {2, 0, VK_FORMAT_R32G32_SFLOAT,    offsetof(anopol::render::Vertex, uv)},
+        VkVertexInputAttributeDescription {3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow0)},
+        VkVertexInputAttributeDescription {4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow1)},
+        VkVertexInputAttributeDescription {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow2)},
+        VkVertexInputAttributeDescription {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(anopol::render::instanceProperties, modelRow3)},
+    };
+
+    std::array<VkVertexInputBindingDescription, 2> bindings = {
+        vertexBindingDescription,
+        instanceBindingDescription
+    };
+
     
     anopolPipelineDefinitions->vertexInput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    anopolPipelineDefinitions->vertexInput.vertexBindingDescriptionCount   = 1;
-    anopolPipelineDefinitions->vertexInput.pVertexBindingDescriptions      = &description;
+    anopolPipelineDefinitions->vertexInput.vertexBindingDescriptionCount   = bindings.size();
+    anopolPipelineDefinitions->vertexInput.pVertexBindingDescriptions      = bindings.data();
     anopolPipelineDefinitions->vertexInput.vertexAttributeDescriptionCount = attribute.size();
     anopolPipelineDefinitions->vertexInput.pVertexAttributeDescriptions    = attribute.data();
     anopolPipelineDefinitions->vertexInput.flags                           = 0;
@@ -319,10 +339,11 @@ void Pipeline::InitializePipeline() {
         VkDescriptorBufferInfo instanceDescriptorBufferInfo{};
         instanceDescriptorBufferInfo.buffer = testAsset->GetInstances()->instanceBuffer;
         instanceDescriptorBufferInfo.offset = 0;
-        instanceDescriptorBufferInfo.range  = sizeof(anopol::render::InstanceBuffer);
+        instanceDescriptorBufferInfo.range  = VK_WHOLE_SIZE;
         
         VkDescriptorBufferInfo transformDescriptorBufferInfo{};
-        transformDescriptorBufferInfo.buffer = testBatch.GetBatchFrame(i).transformBuffer;
+        const anopol::batch::Batch::batchFrame& frame = testBatch.GetBatchFrame(i);
+        transformDescriptorBufferInfo.buffer = frame.transformBuffer;
         transformDescriptorBufferInfo.offset = 0;
         transformDescriptorBufferInfo.range  = sizeof(anopol::batch::batchIndirectTransformation) * testBatch.drawInformation.size();
         
@@ -361,6 +382,10 @@ void Pipeline::InitializePipeline() {
         
         vkUpdateDescriptorSets(context->device, 4, GLOBAL_PIPELINE_DESCRIPTOR_SETS.data(), 0, nullptr);
     }
+    
+    //------------------------------------------------------------------------------------------//
+    // Create Sampler and Allocate Texture Slots
+    //------------------------------------------------------------------------------------------//
     
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 0;
@@ -672,13 +697,19 @@ void Pipeline::Bind(std::string name) {
 
                 for (int j = start; j < end; ++j) {
                     auto* r = renderables[j];
+                    /*
+                    anopol::camera::Ray ray = {anopol::camera::camera.cameraPosition, anopol::camera::camera.mouseRay};
+                    glm::vec3 direction = renderables[j]->position - ray.origin;
                     
-                    //anopol::camera::Ray ray = {anopol::camera::camera.cameraPosition, anopol::camera::camera.mouseRay};
-                    //std::optional<anopol::camera::Intersection> intersection = anopol::camera::Raycast(ray, r);
-                    
-                    //if (intersection != std::nullopt) {
-                    //    intersection->target->color = glm::vec3(1.0f, 0.0f, 0.0f);
-                    //}
+                    if (glm::dot(direction, ray.direction) > 0.5f) {
+                        
+                        std::optional<anopol::camera::Intersection> intersection = anopol::camera::Raycast(ray, r);
+                        
+                        if (intersection != std::nullopt) {
+                            intersection->target->color = glm::vec3(1.0f, 0.0f, 0.0f);
+                        }
+                    }
+                     */
                     
                     if (!r->collisionEnabled) continue;
                     if (glm::distance(r->position, anopol::camera::camera.cameraPosition) > r->ComputeBoundingSphereRadius() + 2.0f) continue;
@@ -741,6 +772,7 @@ void Pipeline::Bind(std::string name) {
     //------------------------------------------------------------------------------------------//
     // Rendering Models / Instancing
     //------------------------------------------------------------------------------------------//
+    
     for (anopol::render::Asset* a : assets) {
         
         //------------------------------------------------------------------------------------------//

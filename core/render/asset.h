@@ -44,7 +44,7 @@ private:
 Asset* Asset::Create(std::string assetPath) {
     
     Assimp::Importer importer;
-    const aiScene *scene = importer.ReadFile("/Users/dmitriwamback/Documents/models/untitled.obj",
+    const aiScene *scene = importer.ReadFile(assetPath.c_str(),
                                              aiProcess_Triangulate |
                                              aiProcess_FlipUVs |
                                              aiProcess_JoinIdenticalVertices |
