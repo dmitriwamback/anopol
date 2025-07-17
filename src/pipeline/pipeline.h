@@ -108,7 +108,7 @@ Pipeline Pipeline::CreatePipeline(std::string shaderFolder) {
     pipeline.vert = vert;
     pipeline.frag = frag;
 
-    pipeline.anopolMainPipeline         = static_cast<struct pipeline*>(malloc(1 * sizeof(struct pipeline)));
+    pipeline.anopolMainPipeline = static_cast<struct pipeline*>(malloc(1 * sizeof(struct pipeline)));
     
     pipeline.InitializePipeline();
     pipeline.CreateCommandBuffers();
@@ -186,6 +186,8 @@ void Pipeline::InitializePipeline() {
     
     int length = 150;
     int idx = 0;
+    
+    testBatch.meshCombineGroup.Reserve(length * length, 0);
     
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < length; j++) {

@@ -13,9 +13,22 @@ namespace anopol::pipeline {
 class Scene {
 public:
     static Scene Create();
+    void RenderScene();
 private:
     Pipeline batchingPipeline, shadowPipeline, gBufferPipeline, instancePipeline;
+    Pipeline debugPipeline;
 };
+
+Scene Scene::Create() {
+    Scene scene = Scene();
+    
+    scene.debugPipeline = Pipeline::CreatePipeline("/Users/dmitriwamback/Documents/Projects/anopol/anopol/shaders/main");
+    
+    
+    
+    return scene;
+}
+
 }
 
 #endif /* scene_h */

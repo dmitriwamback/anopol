@@ -40,10 +40,10 @@ public:
         VkDeviceMemory  transformBufferMemory;
         VkDeviceSize    transformBufferSize = 0;
 
-        bool allocatedTransformations = false;
-        bool allocatedDrawCommands = false;
-        bool empty = true;
-        uint32_t idx;
+        bool            allocatedTransformations = false;
+        bool            allocatedDrawCommands = false;
+        bool            empty = true;
+        uint32_t        idx;
     };
     
     std::vector<anopol::render::Vertex> batchVertices;
@@ -54,8 +54,10 @@ public:
     anopol::render::VertexBuffer vertexBuffer;
     anopol::render::IndexBuffer indexBuffer;
     MeshCombineGroup meshCombineGroup;
+    
     std::vector<VkCommandBuffer> batchCommandBuffers;
     std::vector<SubBatch> subBatches;
+    std::vector<VkFence> fences;
 
     static Batch Create();
     void Append(anopol::render::Renderable* renderable);
@@ -76,7 +78,7 @@ private:
     bool    everyObjectCulled = false;
     int     processed;
     size_t  uploadedTransformCount = 0;
-    void allocateFrame(int frameidx);
+    void pr_AllocateFrame(int frameidx);
     
     VkBuffer redundantBuffer;
     VkDeviceMemory redundantBufferMemory;
@@ -85,6 +87,10 @@ private:
 Batch Batch::Create() {
     
     Batch batch = Batch();
+    
+    // ----------------------------------------------------------------------------- //
+    // Create secondary command buffers
+    // ----------------------------------------------------------------------------- //
     
     batch.batchCommandBuffers.resize(anopol_max_frames);
     
@@ -97,11 +103,26 @@ Batch Batch::Create() {
         vkAllocateCommandBuffers(context->device, &allocInfo, &batch.batchCommandBuffers[i]);
     }
     
+    
+    // ----------------------------------------------------------------------------- //
+    // Create index and vertex buffers
+    // ----------------------------------------------------------------------------- //
+    
     batch.vertexBuffer = anopol::render::VertexBuffer();
     batch.indexBuffer = anopol::render::IndexBuffer();
     
+    
+    // ----------------------------------------------------------------------------- //
+    // Create a class for keeping track of all the entities
+    // ----------------------------------------------------------------------------- //
+    
     batch.meshCombineGroup = MeshCombineGroup();
     batch.processed = 0;
+    
+    
+    // ----------------------------------------------------------------------------- //
+    // Create a redundant buffer (for instancing)
+    // ----------------------------------------------------------------------------- //
     
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -151,6 +172,10 @@ Batch Batch::Create() {
     return batch;
 }
 
+// ----------------------------------------------------------------------------- //
+// Append functions for different scenarios
+// ----------------------------------------------------------------------------- //
+
 void Batch::Append(anopol::render::Renderable* renderable) {
     meshCombineGroup.Append(renderable);
 }
@@ -167,7 +192,16 @@ void Batch::Append(std::vector<anopol::render::Asset*> assets) {
     meshCombineGroup.Append(assets);
 }
 
+
+// ----------------------------------------------------------------------------- //
+// Combine all the renderables into 1 vertex buffer
+// ----------------------------------------------------------------------------- //
+
 void Batch::Combine(int currentFrame = -1) {
+    
+    // ----------------------------------------------------------------------------- //
+    // Create VkFence
+    // ----------------------------------------------------------------------------- //
     
     VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fenceCreateInfo = {};
@@ -175,7 +209,7 @@ void Batch::Combine(int currentFrame = -1) {
     if (vkCreateFence(context->device, &fenceCreateInfo, nullptr, &fence) != VK_SUCCESS) {
         anopol_assert("Failed to create fence");
     }
-        
+    
     uint32_t vertexOffset = 0, indexOffset = 0, vertexCount = 0;
     size_t previousProcessed = processed;
     size_t currentCount = meshCombineGroup.renderables.size();
@@ -186,26 +220,37 @@ void Batch::Combine(int currentFrame = -1) {
     anopol::camera::Frustum frustum = anopol::camera::CreateFrustumPlanes(anopol::camera::camera);
     SubBatch currentSubBatch;
     
+    // ----------------------------------------------------------------------------- //
+    // Go through each non-processed renderable in the meshCombineGroup
+    // ----------------------------------------------------------------------------- //
+    
     for (size_t i = previousProcessed; i < currentCount; i++) {
         
         anopol::render::Renderable* renderable = meshCombineGroup.renderables[i];
         
-        float radius = renderable->ComputeBoundingSphereRadius();
+        // Frustum Culling
         
+        float radius = renderable->ComputeBoundingSphereRadius();
         glm::mat4 model = anopol::modelMatrix(renderable->position, renderable->scale, renderable->rotation);
         
         if (!anopol::camera::isSphereInFrustum(renderable->position, renderable->scale, model, radius, frustum)) {
             //continue;
         }
         
-        vertexCount = renderable->vertices.size();
+        // Calculate offsets
+        
+        vertexCount = static_cast<uint32_t>(renderable->vertices.size());
         
         uint32_t currentVertexOffset = vertexOffset;
         uint32_t currentIndexOffset = indexOffset;
 
         batchDrawInformation drawInfo{};
         transformations.push_back({ model, glm::vec4(renderable->color, 1.0f) });
-
+        
+        // ----------------------------------------------------------------------------- //
+        // Determining if the added model is indexed or not
+        // ----------------------------------------------------------------------------- //
+        
         if (!renderable->isIndexed || renderable->indexBuffer.bufferSize == 0) {
             drawInfo.drawType = nonIndexed;
             drawInfo.firstVertex = currentVertexOffset;
@@ -239,10 +284,8 @@ void Batch::Combine(int currentFrame = -1) {
         batchVertices.insert(batchVertices.end(), renderable->vertices.begin(), renderable->vertices.end());
 #endif
     }
-    
-    if (!isInFrustum) return;
-    
-    processed = meshCombineGroup.renderables.size();
+        
+    processed = static_cast<uint32_t>(meshCombineGroup.renderables.size());
     /*
     for (anopol::render::Asset* asset : meshCombineGroup.assets) {
         for (anopol::render::Asset::Mesh mesh : asset->meshes) {
@@ -271,12 +314,16 @@ void Batch::Combine(int currentFrame = -1) {
     
     if (currentFrame == -1) {
         for (int i = 0; i < anopol_max_frames; i++) {
-            allocateFrame(i);
+            pr_AllocateFrame(i);
         }
     }
     else {
-        allocateFrame(currentFrame);
+        pr_AllocateFrame(currentFrame);
     }
+    
+    //------------------------------------------------------------------------------------------//
+    // Submitting VkFence
+    //------------------------------------------------------------------------------------------//
     
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -287,9 +334,15 @@ void Batch::Combine(int currentFrame = -1) {
 
 }
 
-void Batch::allocateFrame(int frameidx) {
+
+//------------------------------------------------------------------------------------------//
+// Allocating Frames
+//------------------------------------------------------------------------------------------//
+
+void Batch::pr_AllocateFrame(int frameidx) {
     
     
+    // Grab the frame at index frameidx
     batchFrame& frame = frames[frameidx];
 
     std::vector<VkDrawIndirectCommand> drawCommands;
@@ -535,7 +588,7 @@ void Batch::Cull() {
     batchIndices = std::move(tempIndices);
 
     for (int i = 0; i < anopol_max_frames; ++i) {
-        allocateFrame(i);
+        pr_AllocateFrame(i);
     }
 }
 
