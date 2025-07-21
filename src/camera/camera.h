@@ -13,8 +13,7 @@ namespace anopol::camera {
 class Camera {
 public:
     
-    // vertices for a dodecahedron
-    std::vector<anopol::render::Vertex> vertices = {
+     std::vector<anopol::render::Vertex> vertices = {
         anopol::render::Vertex({-0.5f,  0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
         anopol::render::Vertex({ 0.5f,  0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
         anopol::render::Vertex({ 0.5f, -0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
@@ -185,7 +184,7 @@ std::vector<anopol::render::Vertex> Camera::GetColliderVertices(glm::vec3 desire
     std::vector<anopol::render::Vertex> projectedVertices = std::vector<anopol::render::Vertex>();
     
     for (int i = 0; i < vertices.size(); i++) {
-        glm::vec3 projected = glm::vec3(model * glm::vec4(vertices[i].vertex, 1.0));
+        glm::vec3 projected = glm::vec3(model * glm::vec4(vertices[i].vertex * 2.0f, 1.0));
         anopol::render::Vertex cameraVertex = {projected, glm::vec3(0.0f), glm::vec2(0.0f)};
         projectedVertices.push_back(cameraVertex);
     }

@@ -9,4 +9,9 @@
 #define standard_pipeline_h
 
 
+class StandardBatchingPipeline: public Pipeline {
+    
+};
+
+
 #endif /* standard_pipeline_h */

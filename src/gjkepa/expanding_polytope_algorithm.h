@@ -31,7 +31,6 @@ std::pair<std::vector<glm::vec4>, size_t> GetNormal(std::vector<glm::vec3>& poly
         glm::vec3 normal = glm::cross(B - A, C - A);
         normal = glm::normalize(normal);
         float dst = dot(normal, A);
-        
         if (dst < 0) {
             normal = -normal;
             dst = -dst;
@@ -139,6 +138,7 @@ collision EPA(Simplex& simplex, std::vector<anopol::render::Vertex> colliderA, s
             indices.insert(indices.end(), faces.begin(), faces.end());
             normals.insert(normals.end(), newNormals.begin(), newNormals.end());
         }
+        
     }
      
     collisionDetection.normal = min;

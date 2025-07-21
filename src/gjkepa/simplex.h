@@ -27,8 +27,19 @@ public:
     glm::vec3& operator[](unsigned i) { return points[i]; }
     
     void pushFront(glm::vec3 point) {
-        points = {point, points[0], points[1], points[2]};
-        simplexSize = std::min(simplexSize + 1, 4);
+        if (simplexSize < 4) {
+            for (int i = simplexSize; i > 0; i--) {
+                points[i] = points[i - 1];
+            }
+            points[0] = point;
+            simplexSize++;
+        }
+        else {
+            for (int i = 3; i > 0; i--) {
+                points[i] = points[i - 1];
+            }
+            points[0] = point;
+        }
     }
     unsigned size() const { return simplexSize; }
     auto begin() const { return points.begin(); }

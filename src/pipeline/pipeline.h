@@ -184,7 +184,7 @@ void Pipeline::InitializePipeline() {
     
     offscreen = anopol::render::OffscreenRendering::Create();
     
-    int length = 150;
+    int length = 200;
     int idx = 0;
     
     testBatch.meshCombineGroup.Reserve(length * length, 0);
@@ -610,10 +610,10 @@ void Pipeline::Bind(std::string name) {
         for (int i = 0; i < maxThreads; ++i) {
             int start = i * chunkSize;
             int end = std::min(start + chunkSize, total);
-
+            
             futures.push_back(std::async(std::launch::async, [start, end, &renderables]() {
                 std::vector<CameraAdjustment> adjustments;
-
+                
                 for (int j = start; j < end; ++j) {
                     auto* r = renderables[j];
                     
