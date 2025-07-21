@@ -15,6 +15,7 @@ public:
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
     VkDeviceSize bufferSize = 0;
+    std::vector<uint32_t> indices;
     
     void alloc(std::vector<uint32_t> indices);
     void dealloc();
@@ -22,6 +23,8 @@ public:
 
 void IndexBuffer::alloc(std::vector<uint32_t> indices) {
     bufferSize = indices.size() * sizeof(indices[0]);
+    
+    this->indices = indices;
     
     VkBuffer staging;
     VkDeviceMemory stagingMemory;

@@ -21,7 +21,7 @@ public:
     glm::vec3 position, rotation, scale, color;
     
     static Renderable* Create();
-    std::vector<float> GetColliderVertices(bool withNormals);
+    std::vector<Vertex> GetColliderVertices(bool withNormals);
     float ComputeBoundingSphereRadius();
     float boundingSphereRadius;
 private:
@@ -114,27 +114,20 @@ Renderable* Renderable::Create() {
     return renderable;
 }
 
-std::vector<float> Renderable::GetColliderVertices(bool withNormals = false) {
+std::vector<Vertex> Renderable::GetColliderVertices(bool withNormals = false) {
     
     if (lastPosition != position || lastScale != scale || lastRotation != rotation || !computedModelMatrix) {
         currentModel = anopol::modelMatrix(position, scale, rotation);
         computedModelMatrix = true;
     }
     
-    std::vector<float> projectedVertices = std::vector<float>();
+    std::vector<Vertex> projectedVertices = std::vector<Vertex>();
     
     for (int i = 0; i < vertices.size(); i++) {
         glm::vec3 vertex = vertices[i].vertex;
         glm::vec3 projected = glm::vec3(currentModel * glm::vec4(vertex, 1.0));
         
-        projectedVertices.push_back(projected.x);
-        projectedVertices.push_back(projected.y);
-        projectedVertices.push_back(projected.z);
-        if (withNormals) {
-            projectedVertices.push_back(0);
-            projectedVertices.push_back(0);
-            projectedVertices.push_back(0);
-        }
+        projectedVertices.push_back(Vertex{projected, glm::vec3(0.0f), glm::vec2(0.0f)});
     }
     lastPosition = position;
     lastScale    = scale;
@@ -149,12 +142,12 @@ float Renderable::ComputeBoundingSphereRadius() {
     
     if (lastPosition != position || lastScale != scale || lastRotation != rotation || !computedBoundingSphere) {
         
-        std::vector<float> colliderVertices = GetColliderVertices();
-        glm::vec3 max = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
-        glm::vec3 min = glm::vec3(colliderVertices[0], colliderVertices[1], colliderVertices[2]);
+        std::vector<Vertex> colliderVertices = GetColliderVertices();
+        glm::vec3 max = colliderVertices[0].vertex;
+        glm::vec3 min = colliderVertices[0].vertex;
         
-        for (int i = 0; i < colliderVertices.size()/3; i++) {
-            glm::vec3 vertex = glm::vec3(colliderVertices[i*3], colliderVertices[i*3+1], colliderVertices[i*3+2]);
+        for (int i = 0; i < colliderVertices.size(); i++) {
+            glm::vec3 vertex = colliderVertices[i].vertex;
             min = glm::min(min, vertex);
             max = glm::max(max, vertex);
         }

@@ -14,17 +14,15 @@ class Camera {
 public:
     
     // vertices for a dodecahedron
-    std::vector<float> vertices = {
-        1.0f,  1.0f,                  1.0f,           1.0f,  1.0f,                         -1.0f,
-        1.0f, -1.0f,                  1.0f,           1.0f, -1.0f,                         -1.0f,
-        0.0f,  inverse_golden_ratio,  golden_ratio,   0.0f,  inverse_golden_ratio, -golden_ratio,
-        0.0f, -inverse_golden_ratio,  golden_ratio,   0.0f, -inverse_golden_ratio, -golden_ratio,
-        golden_ratio,  inverse_golden_ratio,  0.0f,   golden_ratio, -inverse_golden_ratio,  0.0f,
-       -golden_ratio,  inverse_golden_ratio,  0.0f,  -golden_ratio, -inverse_golden_ratio,  0.0f,
-        golden_ratio,  0.0f,  inverse_golden_ratio,  -golden_ratio,  0.0f,  inverse_golden_ratio,
-        golden_ratio,  0.0f, -inverse_golden_ratio,  -golden_ratio,  0.0f, -inverse_golden_ratio,
-        0.0f,  golden_ratio,  inverse_golden_ratio,   0.0f, -golden_ratio,  inverse_golden_ratio,
-        0.0f,  golden_ratio, -inverse_golden_ratio,   0.0f, -golden_ratio, -inverse_golden_ratio
+    std::vector<anopol::render::Vertex> vertices = {
+        anopol::render::Vertex({-0.5f,  0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({ 0.5f,  0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({ 0.5f, -0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({-0.5f, -0.5f,  0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({-0.5f,  0.5f, -0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({ 0.5f,  0.5f, -0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({ 0.5f, -0.5f, -0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
+        anopol::render::Vertex({-0.5f, -0.5f, -0.5f}, glm::vec3(0.0f), glm::vec2(0.0f)),
     };
     
     glm::vec3 cameraPosition, lookDirection, mouseRay, velocity, right;
@@ -49,7 +47,7 @@ public:
     static void initialize();
     void update(glm::vec4 movement);
     void updateLookAt();
-    std::vector<float> GetColliderVertices(glm::vec3 desiredPosition);
+    std::vector<anopol::render::Vertex> GetColliderVertices(glm::vec3 desiredPosition);
 };
 
 Camera camera;
@@ -174,7 +172,7 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
     camera.lastMouseY = ypos;
 }
 
-std::vector<float> Camera::GetColliderVertices(glm::vec3 desiredPosition = glm::vec3(0.0f)) {
+std::vector<anopol::render::Vertex> Camera::GetColliderVertices(glm::vec3 desiredPosition = glm::vec3(0.0f)) {
     
     glm::vec3 position = cameraPosition;
     if (glm::length(desiredPosition) != 0) {
@@ -184,14 +182,12 @@ std::vector<float> Camera::GetColliderVertices(glm::vec3 desiredPosition = glm::
     
     glm::mat4 model = anopol::modelMatrix(position, glm::vec3(0.75f), glm::vec3(0.0f));
     
-    std::vector<float> projectedVertices = std::vector<float>();
+    std::vector<anopol::render::Vertex> projectedVertices = std::vector<anopol::render::Vertex>();
     
-    for (int i = 0; i < vertices.size()/3; i++) {
-        glm::vec3 vertex = glm::vec3(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
-        glm::vec3 projected = glm::vec3(model * glm::vec4(vertex, 1.0));
-        projectedVertices.push_back(projected.x);
-        projectedVertices.push_back(projected.y);
-        projectedVertices.push_back(projected.z);
+    for (int i = 0; i < vertices.size(); i++) {
+        glm::vec3 projected = glm::vec3(model * glm::vec4(vertices[i].vertex, 1.0));
+        anopol::render::Vertex cameraVertex = {projected, glm::vec3(0.0f), glm::vec2(0.0f)};
+        projectedVertices.push_back(cameraVertex);
     }
     return projectedVertices;
     

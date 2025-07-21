@@ -616,19 +616,6 @@ void Pipeline::Bind(std::string name) {
 
                 for (int j = start; j < end; ++j) {
                     auto* r = renderables[j];
-                    /*
-                    anopol::camera::Ray ray = {anopol::camera::camera.cameraPosition, anopol::camera::camera.mouseRay};
-                    glm::vec3 direction = renderables[j]->position - ray.origin;
-                    
-                    if (glm::dot(direction, ray.direction) > 0.5f) {
-                        
-                        std::optional<anopol::camera::Intersection> intersection = anopol::camera::Raycast(ray, r);
-                        
-                        if (intersection != std::nullopt) {
-                            intersection->target->color = glm::vec3(1.0f, 0.0f, 0.0f);
-                        }
-                    }
-                     */
                     
                     if (!r->collisionEnabled) continue;
                     if (glm::distance(r->position, anopol::camera::camera.cameraPosition) > r->ComputeBoundingSphereRadius() + 2.0f) continue;
@@ -636,9 +623,11 @@ void Pipeline::Bind(std::string name) {
                     auto col = anopol::collision::GJKCollisionWithCamera(r);
                     
                     if (col.collided && col.depth > 0.02f) {
+                        
                         glm::vec3 correctionDir = glm::normalize(col.A - col.B);
-                        if (glm::dot(col.normal, correctionDir) < 0.0f)
-                            col.normal = -col.normal;
+                        if (glm::dot(col.normal, correctionDir) < 0.0f) col.normal = -col.normal;
+                        
+                        anopol::camera::camera.cameraPosition += col.normal * col.depth;
 
                         float depth = std::max(col.depth, 0.005f);
                         adjustments.push_back({col.normal, depth});
@@ -655,13 +644,6 @@ void Pipeline::Bind(std::string name) {
                 totalDepth += adj.depth;
             }
         }
-        if (totalDepth == 0.0f) break;
-
-        glm::vec3 stableCorrection = glm::normalize(accumulatedMTV) * totalDepth;
-        anopol::camera::camera.cameraPosition += stableCorrection;
-        totalPush += stableCorrection;
-
-        if (glm::length(totalPush) > 2.0f) break;
     }
     anopol::camera::camera.updateLookAt();
         

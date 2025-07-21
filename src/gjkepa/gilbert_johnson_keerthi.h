@@ -129,8 +129,8 @@ bool HandleSimplex(Simplex& simplex, glm::vec3& direction) {
 
 collision GJKCollision(anopol::render::Renderable* a, anopol::render::Renderable* b) {
     
-    std::vector<float> colliderVerticesA = a->GetColliderVertices();
-    std::vector<float> colliderVerticesB = b->GetColliderVertices();
+    std::vector<anopol::render::Vertex> colliderVerticesA = a->GetColliderVertices();
+    std::vector<anopol::render::Vertex> colliderVerticesB = b->GetColliderVertices();
     
     collision collisionInformation{};
     collisionInformation.collided = false;
@@ -170,8 +170,8 @@ collision GJKCollisionWithCamera(anopol::render::Renderable* a, glm::vec3 desire
     collision collisionInformation{};
     collisionInformation.collided = false;
     
-    std::vector<float> colliderVerticesA = a->GetColliderVertices();
-    std::vector<float> colliderVerticesB = anopol::camera::camera.GetColliderVertices(desiredPosition);
+    std::vector<anopol::render::Vertex> colliderVerticesA = a->GetColliderVertices();
+    std::vector<anopol::render::Vertex> colliderVerticesB = anopol::camera::camera.GetColliderVertices(desiredPosition);
     
     glm::vec3 support = Support(colliderVerticesA, glm::vec3(1.0f, 0.0f, 0.0f)) - Support(colliderVerticesB, -glm::vec3(1.0f, 0.0f, 0.0f));
     
