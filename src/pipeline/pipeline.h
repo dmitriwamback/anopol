@@ -242,7 +242,7 @@ void Pipeline::InitializePipeline() {
         VK_DYNAMIC_STATE_SCISSOR
     };
     
-    anopolPipelineConfigurations = CreatePipelineConfigurations(InstanceAndBatching, &anopolMainPipeline->viewport, &anopolMainPipeline->scissor);
+    anopolPipelineConfigurations = CreatePipelineConfigurations(InstanceAndStandard, Forward, &anopolMainPipeline->viewport, &anopolMainPipeline->scissor);
     
     //------------------------------------------------------------------------------------------//
     // Uniform, Instance, Batching, Texture Descriptor Sets
@@ -261,7 +261,7 @@ void Pipeline::InitializePipeline() {
         instanceDescriptorBufferInfo.range  = VK_WHOLE_SIZE;
         
         VkDescriptorBufferInfo transformDescriptorBufferInfo{};
-        const anopol::batch::Batch::batchFrame& frame = testBatch.GetBatchFrame(i);
+        const anopol::batch::Batch::batchFrame& frame = testBatch.GetBatchFrame(static_cast<uint32_t>(i));
         transformDescriptorBufferInfo.buffer = frame.transformBuffer;
         transformDescriptorBufferInfo.offset = 0;
         transformDescriptorBufferInfo.range  = sizeof(anopol::batch::batchIndirectTransformation) * testBatch.drawInformation.size();
@@ -594,7 +594,7 @@ void Pipeline::Bind(std::string name) {
     
     int hardwareThreads = std::thread::hardware_concurrency();
     auto& renderables = testBatch.meshCombineGroup.renderables;
-    int total = renderables.size();
+    int total = (int)renderables.size();
     uint32_t maxThreads = std::min(hardwareThreads, total);
     int chunkSize = (total + maxThreads - 1) / maxThreads;
 

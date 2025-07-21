@@ -230,15 +230,14 @@ void Batch::Combine(int currentFrame = -1) {
         
         // Frustum Culling
         
-        float radius = renderable->ComputeBoundingSphereRadius();
+        //float radius = renderable->ComputeBoundingSphereRadius();
         glm::mat4 model = anopol::modelMatrix(renderable->position, renderable->scale, renderable->rotation);
         
-        if (!anopol::camera::isSphereInFrustum(renderable->position, renderable->scale, model, radius, frustum)) {
+        //if (!anopol::camera::isSphereInFrustum(renderable->position, renderable->scale, model, radius, frustum)) {
             //continue;
-        }
+        //}
         
         // Calculate offsets
-        
         vertexCount = static_cast<uint32_t>(renderable->vertices.size());
         
         uint32_t currentVertexOffset = vertexOffset;
@@ -324,6 +323,8 @@ void Batch::Combine(int currentFrame = -1) {
     //------------------------------------------------------------------------------------------//
     // Submitting VkFence
     //------------------------------------------------------------------------------------------//
+    
+    vkResetFences(context->device, 1, &fence);
     
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -515,81 +516,6 @@ void Batch::Dealloc() {
 
 void Batch::Cull() {
     
-    uint32_t vertexOffset = 0, indexOffset = 0;
-    anopol::camera::Frustum frustum = anopol::camera::CreateFrustumPlanes(anopol::camera::camera);
-
-    std::mutex mutex;
-    std::vector<batchDrawInformation> tempDrawInfo;
-    std::vector<uint32_t> tempIndices;
-
-    size_t chunkSize = 64;
-    size_t renderableCount = meshCombineGroup.renderables.size();
-
-    std::vector<std::future<void>> futures;
-
-    for (size_t start = 0; start < renderableCount; start += chunkSize) {
-        futures.push_back(std::async(std::launch::async, [&, start] {
-            std::vector<batchDrawInformation> localDraws;
-            std::vector<uint32_t> localIndices;
-
-            uint32_t localVertexOffset = 0;
-            uint32_t localIndexOffset = 0;
-
-            for (size_t i = start; i < std::min(start + chunkSize, renderableCount); ++i) {
-                anopol::render::Renderable* renderable = meshCombineGroup.renderables[i];
-
-                float radius = renderable->ComputeBoundingSphereRadius();
-                glm::mat4 model = anopol::modelMatrix(renderable->position, renderable->scale, renderable->rotation);
-                
-                if (!anopol::camera::isSphereInFrustum(renderable->position, renderable->scale, model, radius, frustum)) {
-                    continue;
-                }
-
-                batchDrawInformation drawInfo{};
-                drawInfo.object = static_cast<uint32_t>(i);
-
-                if (!renderable->isIndexed || renderable->indexBuffer.bufferSize == 0) {
-                    drawInfo.drawType = nonIndexed;
-                    drawInfo.firstVertex = localVertexOffset;
-                    drawInfo.vertexCount = static_cast<uint32_t>(renderable->vertices.size());
-                } else {
-                    drawInfo.drawType = indexed;
-                    for (uint32_t index : renderable->indices) {
-                        localIndices.push_back(index + localVertexOffset);
-                    }
-                    drawInfo.firstIndex = localIndexOffset;
-                    drawInfo.indexCount = static_cast<uint32_t>(renderable->indices.size());
-                    drawInfo.vertexOffset = localVertexOffset;
-                    localIndexOffset += drawInfo.indexCount;
-                }
-
-                localDraws.push_back(drawInfo);
-                localVertexOffset += static_cast<uint32_t>(renderable->vertices.size());
-            }
-
-            // Thread-safe merge
-            std::scoped_lock lock(mutex);
-            for (auto& d : localDraws) {
-                d.firstVertex += vertexOffset;
-                d.firstIndex += indexOffset;
-                d.vertexOffset += vertexOffset;
-                tempDrawInfo.push_back(d);
-            }
-            for (auto& idx : localIndices) tempIndices.push_back(idx);
-
-            vertexOffset += localVertexOffset;
-            indexOffset += localIndexOffset;
-        }));
-    }
-
-    for (auto& f : futures) f.get();
-
-    drawInformation = std::move(tempDrawInfo);
-    batchIndices = std::move(tempIndices);
-
-    for (int i = 0; i < anopol_max_frames; ++i) {
-        pr_AllocateFrame(i);
-    }
 }
 
 void Batch::Render(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer framebuffer, uint32_t currentFrame) {
