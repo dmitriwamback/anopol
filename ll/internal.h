@@ -506,6 +506,7 @@ void createSwapchain() {
     swapchainInfo.imageExtent       = extent;
     swapchainInfo.imageArrayLayers  = 1;
     swapchainInfo.imageUsage        = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchainInfo.presentMode       = VK_PRESENT_MODE_MAILBOX_KHR;
     
     queueFamily indices = findQueueFamily(context->physicalDevice);
     

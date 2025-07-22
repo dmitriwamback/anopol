@@ -14,6 +14,9 @@
   <li>Texture sampling</li>
   <li>Off-screen rendering</li>
   <li>Approximate Convex Decomposition</li>
+  <li>Compute Shaders</li>
+  <li>Tessellation Shaders</li>
+  <li>GBuffer</li>
 </ul>
 <p>Necessary libraries:</p>
 <ul>

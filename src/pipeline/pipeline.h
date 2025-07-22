@@ -204,7 +204,7 @@ void Pipeline::InitializePipeline() {
     anopol::render::Asset* testAsset = anopol::render::Asset::Create("/Users/dmitriwamback/Documents/Projects/nova scotia/nova scotia/models/Nova Scotia.obj");
     testBatch.Combine();
     
-    int instance_size = 12;
+    int instance_size = 10;
     
     for (int i = 0; i < instance_size; i++) {
         for (int j = 0; j < instance_size; j++) {
